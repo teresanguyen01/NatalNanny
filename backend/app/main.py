@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import health, me
+from .routers import checkup, dashboard, health, me, users
+from .routers.messaging import router as messaging_router
+from .routers.messaging import ws_router as messaging_ws_router
 
 settings = get_settings()
 
@@ -22,6 +24,13 @@ app.add_middleware(
 
 app.include_router(health.router, prefix="/api")
 app.include_router(me.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+app.include_router(checkup.router, prefix="/api")
+# REST messaging routes under /api
+app.include_router(messaging_router, prefix="/api")
+# WebSocket endpoint at /ws/messaging/{thread_id} (no /api prefix)
+app.include_router(messaging_ws_router)
 
 # Production: mount the built React SPA and serve the index for all unmatched client routes.
 # Uncomment once `npm run build` has been run in frontend/:
