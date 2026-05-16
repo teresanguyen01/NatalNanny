@@ -36,3 +36,5 @@ build/
 # Supabase local dev
 supabase/.branches/
 supabase/.temp/
+
+.cursor.md
