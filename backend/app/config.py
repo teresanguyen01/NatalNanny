@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = ""
     # Used for server-side DB access (not needed in scaffold)
     supabase_service_role_key: str = ""
+    # SQLAlchemy / Alembic — Postgres connection URI (Supabase or local CLI)
+    database_url: str = (
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
+    )
     # Comma-separated list of allowed CORS origins
     cors_origins: str = "http://localhost:5173"
 
