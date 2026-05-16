@@ -1,10 +1,96 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: oklch(97% 0.02 330);
-  --color-brand-100: oklch(93% 0.04 330);
-  --color-brand-200: oklch(87% 0.07 330);
-  --color-brand-500: oklch(62% 0.18 330);
-  --color-brand-600: oklch(54% 0.2 330);
-  --color-brand-700: oklch(46% 0.19 330);
+  /* NatalNanny core palette */
+  --color-nn-soft-blue: #c8d9ed;
+  --color-nn-pale-sky: #e1f1fd;
+  --color-nn-periwinkle: #c1d8f0;
+  --color-nn-deep-blue: #4663ac;
+  --color-nn-mist: #d2deeb;
+  --color-nn-navy: #2d3a5e;
+  --color-nn-navy-light: #3d4f7a;
+
+  /* Remap brand → NatalNanny blues */
+  --color-brand-50: #f0f5fb;
+  --color-brand-100: #e1f1fd;
+  --color-brand-200: #c1d8f0;
+  --color-brand-500: #4663ac;
+  --color-brand-600: #3a5599;
+  --color-brand-700: #2d3a5e;
+
+  /* Typography — Nunito for display/UI, DM Sans for body prose */
+  --font-sans:    'Nunito',  'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-body:    'DM Sans', 'Nunito',  ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Nunito',  ui-sans-serif, system-ui, sans-serif;
+
+  /* Rounded corners scale */
+  --radius-card: 1.5rem;   /* 24px */
+  --radius-btn:  0.75rem;  /* 12px */
+}
+
+/* ── Reset & base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Lock viewport height for the app shell */
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Slightly tighter letter-spacing looks great with Nunito */
+  letter-spacing: -0.01em;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Nunito headings feel best with a touch of tighter tracking */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Prose / description text uses DM Sans */
+p, li, label, input, textarea, select {
+  font-family: var(--font-body);
+  letter-spacing: 0;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c1d8f0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4663ac; }
+
+/* ── Animations ── */
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.2); }
+}
+.recording-dot { animation: recording-pulse 1.2s ease-in-out infinite; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.fade-up   { animation: fade-up 0.35s ease both; }
+.fade-up-1 { animation-delay: 0.05s; }
+.fade-up-2 { animation-delay: 0.10s; }
+.fade-up-3 { animation-delay: 0.15s; }
+.fade-up-4 { animation-delay: 0.20s; }
+.fade-up-5 { animation-delay: 0.25s; }
+
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%            { transform: translateY(-6px); }
 }
