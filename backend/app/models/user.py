@@ -1,11 +1,17 @@
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, func
+from sqlalchemy import DateTime, Enum, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+
+
+class UserRole(str, enum.Enum):
+    patient = "patient"
+    doctor = "doctor"
 
 
 class UserProfile(Base):
@@ -15,6 +21,10 @@ class UserProfile(Base):
         UUID(as_uuid=True),
         primary_key=True,
         comment="Mirrors auth.users.id from Supabase",
+    )
+    role: Mapped[UserRole | None] = mapped_column(
+        Enum(UserRole, name="user_role", create_constraint=False),
+        nullable=True,
     )
     mascot_health: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

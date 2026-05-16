@@ -1,3 +1,5 @@
+import httpx
+from functools import lru_cache
 from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,24 +15,60 @@ class CurrentUser(BaseModel):
     email: str
 
 
+@lru_cache(maxsize=1)
+def _get_jwks(supabase_url: str) -> dict:
+    """Fetch and cache the JWKS (JSON Web Key Set) from Supabase."""
+    if not supabase_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SUPABASE_URL is not configured on the server.",
+        )
+
+    jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+
+    try:
+        response = httpx.get(jwks_url, timeout=10.0)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not fetch Supabase JWKS: {exc}",
+        ) from exc
+
+
 def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> CurrentUser:
     token = credentials.credentials
 
-    if not settings.supabase_jwt_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="SUPABASE_JWT_SECRET is not configured on the server.",
-        )
+    jwks = _get_jwks(settings.supabase_url)
 
     try:
+        # Decode without verification first to get the key ID
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+
+        # Find the matching key in JWKS
+        key = None
+        for jwk in jwks.get("keys", []):
+            if jwk.get("kid") == kid:
+                key = jwt.algorithms.RSAAlgorithm.from_jwk(jwk)
+                break
+
+        if not key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token signing key not found in JWKS.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Verify and decode with the public key
         payload = jwt.decode(
             token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            # Supabase tokens use "authenticated" as the audience
+            key,
+            algorithms=["RS256"],
             audience="authenticated",
         )
     except JWTError as exc:

@@ -37,6 +37,7 @@ build/
 supabase/.branches/
 supabase/.temp/
 
-# Cursor
+# Agents
+.claude/
 .cursor.md
 CLAUDE.md

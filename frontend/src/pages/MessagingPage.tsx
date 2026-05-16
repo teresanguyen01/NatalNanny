@@ -1,57 +1,82 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import DoctorChat from '../components/messaging/DoctorChat'
+import { useAuth } from '../contexts/AuthContext'
+import { getContacts, createThread, type Contact } from '../lib/api'
+import ChatPanel from '../components/messaging/ChatPanel'
 import AIAgentChat from '../components/messaging/AIAgentChat'
-import { mockDoctorMessages, mockAIMessages } from '../data/mockData'
-
-type Tab = 'doctor' | 'ai'
-
-const CONTACTS = [
-  {
-    id: 'doctor' as const,
-    name: 'Dr. Rivera',
-    subtitle: 'Maternal-Fetal Medicine',
-    avatar: 'R',
-    avatarBg: 'bg-nn-deep-blue',
-    lastMessage: mockDoctorMessages[mockDoctorMessages.length - 1].text,
-    time: mockDoctorMessages[mockDoctorMessages.length - 1].time,
-    online: true,
-    unread: 0,
-  },
-  {
-    id: 'ai' as const,
-    name: 'NatalNanny AI',
-    subtitle: 'Health context · Not a diagnosis',
-    avatar: null,
-    avatarBg: 'bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue',
-    lastMessage: mockAIMessages[mockAIMessages.length - 1].text,
-    time: mockAIMessages[mockAIMessages.length - 1].time,
-    online: true,
-    unread: 0,
-  },
-]
 
 export default function MessagingPage() {
+  const { isDemoMode } = useAuth()
   const [searchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState<Tab>('doctor')
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [activeContactId, setActiveContactId] = useState<string | null>(null)
   const [mobileShowChat, setMobileShowChat] = useState(false)
+  const [threadId, setThreadId] = useState<string | null>(null)
+  const [loadingThread, setLoadingThread] = useState(false)
 
+  // Load contacts
+  useEffect(() => {
+    if (isDemoMode) {
+      setContacts([
+        { id: 'demo-doctor', role: 'doctor', display_name: 'Dr. Rivera', email: null },
+        { id: 'ai-agent', role: null, display_name: 'NatalNanny AI', email: null },
+      ])
+      return
+    }
+    getContacts()
+      .then(setContacts)
+      .catch(() => {})
+  }, [isDemoMode])
+
+  // Handle URL params
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'ai') { setActiveTab('ai'); setMobileShowChat(true) }
-    else if (tab === 'doctor') { setActiveTab('doctor'); setMobileShowChat(true) }
-  }, [searchParams])
+    if (tab === 'ai') {
+      setActiveContactId('ai-agent')
+      setMobileShowChat(true)
+    } else if (tab === 'doctor' && contacts.length > 0) {
+      const doctor = contacts.find((c) => c.role === 'doctor')
+      if (doctor) {
+        setActiveContactId(doctor.id)
+        setMobileShowChat(true)
+      }
+    }
+  }, [searchParams, contacts])
+
+  // When selecting a contact, find/create thread
+  async function selectContact(contact: Contact) {
+    setActiveContactId(contact.id)
+    setMobileShowChat(true)
+    setThreadId(null)
+
+    if (contact.id === 'ai-agent') return // AI agent handles its own thread
+
+    if (isDemoMode) {
+      setThreadId('demo-thread-' + contact.id)
+      return
+    }
+
+    setLoadingThread(true)
+    try {
+      const thread = await createThread([contact.id])
+      setThreadId(thread.id)
+    } catch {
+      // Could show error
+    } finally {
+      setLoadingThread(false)
+    }
+  }
+
+  const activeContact = contacts.find((c) => c.id === activeContactId)
+  const isAI = activeContactId === 'ai-agent'
 
   return (
-    /* Lock to viewport — no outer scroll */
     <div className="flex h-full overflow-hidden">
-
-      {/* ── Left contacts sidebar ── */}
+      {/* Left contacts sidebar */}
       <aside
         className={[
           'flex flex-col border-r border-nn-mist bg-white',
           'w-full flex-shrink-0 lg:w-80',
-          /* On mobile: hide sidebar when chat is open */
           mobileShowChat ? 'hidden lg:flex' : 'flex',
         ].join(' ')}
       >
@@ -65,13 +90,14 @@ export default function MessagingPage() {
 
         {/* Contact list */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {CONTACTS.map((contact) => {
-            const isActive = activeTab === contact.id
+          {contacts.map((contact) => {
+            const isActive = activeContactId === contact.id
+            const isAIContact = contact.id === 'ai-agent'
 
             return (
               <button
                 key={contact.id}
-                onClick={() => { setActiveTab(contact.id); setMobileShowChat(true) }}
+                onClick={() => selectContact(contact)}
                 className={[
                   'group flex w-full items-start gap-3.5 rounded-2xl p-3.5 text-left transition-all',
                   isActive
@@ -80,35 +106,33 @@ export default function MessagingPage() {
                 ].join(' ')}
               >
                 {/* Avatar */}
-                <div className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${contact.avatarBg} shadow-sm`}>
-                  {contact.avatar ? (
-                    <span className="text-lg font-bold text-white">{contact.avatar}</span>
-                  ) : (
+                <div className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${isAIContact ? 'bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue' : 'bg-nn-deep-blue'} shadow-sm`}>
+                  {isAIContact ? (
                     <svg viewBox="0 0 20 20" fill="white" className="h-5 w-5">
                       <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
                     </svg>
+                  ) : (
+                    <span className="text-lg font-bold text-white">
+                      {contact.display_name.charAt(0).toUpperCase()}
+                    </span>
                   )}
-                  {/* Online dot */}
-                  {contact.online && (
-                    <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
-                  )}
+                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
                 </div>
 
                 {/* Info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className={`truncate text-sm font-bold ${isActive ? 'text-nn-deep-blue' : 'text-nn-navy'}`}>
-                      {contact.name}
+                      {contact.display_name}
                     </p>
-                    <span className="flex-shrink-0 text-[10px] text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
-                      {contact.time}
-                    </span>
+                    {contact.role && (
+                      <span className="flex-shrink-0 rounded-full bg-nn-pale-sky px-2 py-0.5 text-[10px] font-medium text-nn-deep-blue capitalize">
+                        {contact.role}
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
-                    {contact.subtitle}
-                  </p>
-                  <p className="mt-1.5 line-clamp-2 text-[11px] text-nn-navy-light leading-snug" style={{ fontFamily: 'var(--font-body)' }}>
-                    {contact.lastMessage}
+                    {isAIContact ? 'Health context · Not a diagnosis' : contact.role === 'doctor' ? 'Care provider' : 'Patient'}
                   </p>
                 </div>
               </button>
@@ -126,11 +150,10 @@ export default function MessagingPage() {
         </div>
       </aside>
 
-      {/* ── Right chat panel ── */}
+      {/* Right chat panel */}
       <div
         className={[
           'flex flex-1 flex-col overflow-hidden',
-          /* On mobile: show only when chat is open */
           mobileShowChat ? 'flex' : 'hidden lg:flex',
         ].join(' ')}
       >
@@ -147,26 +170,42 @@ export default function MessagingPage() {
           </button>
         </div>
 
-        {/* Chat component fills remaining space */}
+        {/* Chat area */}
         <div className="flex-1 overflow-hidden">
-          {activeTab === 'doctor' ? <DoctorChat /> : <AIAgentChat />}
+          {isAI ? (
+            <AIAgentChat />
+          ) : activeContact ? (
+            loadingThread ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-nn-periwinkle border-t-nn-deep-blue" />
+              </div>
+            ) : (
+              <ChatPanel
+                threadId={threadId}
+                contactName={activeContact.display_name}
+                contactAvatar={
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-nn-deep-blue text-white font-bold text-lg flex-shrink-0">
+                    {activeContact.display_name.charAt(0).toUpperCase()}
+                  </div>
+                }
+                statusLine={activeContact.role === 'doctor' ? 'Available · Care provider' : 'Patient'}
+              />
+            )
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-center bg-nn-pale-sky/50">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-nn-soft-blue mb-4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-8 w-8">
+                  <path d="M21 13.5C21 18.19 16.97 22 12 22c-1.38 0-2.69-.3-3.85-.84L3 22l1.38-4.65A9.46 9.46 0 0 1 3 13.5C3 8.81 7.03 5 12 5s9 3.81 9 8.5Z" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <p className="font-bold text-nn-navy">Select a conversation</p>
+              <p className="mt-1 text-sm text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
+                Choose a contact from the sidebar to start messaging
+              </p>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* ── Empty state on desktop if no contact selected yet ── */}
-      {!mobileShowChat && (
-        <div className="hidden lg:flex flex-1 flex-col items-center justify-center text-center bg-nn-pale-sky/50">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-nn-soft-blue mb-4">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-8 w-8">
-              <path d="M21 13.5C21 18.19 16.97 22 12 22c-1.38 0-2.69-.3-3.85-.84L3 22l1.38-4.65A9.46 9.46 0 0 1 3 13.5C3 8.81 7.03 5 12 5s9 3.81 9 8.5Z" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <p className="font-bold text-nn-navy">Select a conversation</p>
-          <p className="mt-1 text-sm text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
-            Choose Dr. Rivera or NatalNanny AI from the sidebar
-          </p>
-        </div>
-      )}
     </div>
   )
 }
