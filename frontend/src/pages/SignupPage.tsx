@@ -6,6 +6,9 @@ export default function SignupPage() {
   const { signUp, session, isDemoMode } = useAuth()
   const navigate = useNavigate()
 
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,6 +23,25 @@ export default function SignupPage() {
     e.preventDefault()
     setError(null)
 
+    // Validate first name
+    if (firstName.trim().length === 0) {
+      setError('First name is required.')
+      return
+    }
+
+    // Validate last name
+    if (lastName.trim().length === 0) {
+      setError('Last name is required.')
+      return
+    }
+
+    // Validate phone number (E.164 format)
+    const cleanPhone = phoneNumber.replace(/[\s\-()]/g, '')
+    if (!/^\+?[1-9]\d{1,14}$/.test(cleanPhone)) {
+      setError('Please enter a valid phone number.')
+      return
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match.')
       return
@@ -31,7 +53,7 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    const { error } = await signUp(email, password)
+    const { error } = await signUp(email, password, firstName.trim(), lastName.trim(), cleanPhone)
     setLoading(false)
 
     if (error) {
@@ -59,6 +81,58 @@ export default function SignupPage() {
         {/* Card */}
         <div className="rounded-3xl bg-white p-8 shadow-sm">
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
+            {/* First Name and Last Name - 2 column grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="first-name" className="block text-sm font-medium text-nn-navy">
+                  First name
+                </label>
+                <input
+                  id="first-name"
+                  type="text"
+                  required
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="mt-1.5 block w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-3 text-sm text-nn-navy placeholder-nn-navy-light outline-none transition focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+                  placeholder="Jane"
+                />
+              </div>
+              <div>
+                <label htmlFor="last-name" className="block text-sm font-medium text-nn-navy">
+                  Last name
+                </label>
+                <input
+                  id="last-name"
+                  type="text"
+                  required
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="mt-1.5 block w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-3 text-sm text-nn-navy placeholder-nn-navy-light outline-none transition focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+                  placeholder="Smith"
+                />
+              </div>
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-nn-navy">
+                Phone number
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                required
+                autoComplete="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="mt-1.5 block w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-3 text-sm text-nn-navy placeholder-nn-navy-light outline-none transition focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+                placeholder="+1 555-123-4567"
+              />
+            </div>
+
+            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-nn-navy">
                 Email

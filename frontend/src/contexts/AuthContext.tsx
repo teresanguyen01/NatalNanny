@@ -25,12 +25,13 @@ interface AuthContextValue {
   profileLoaded: boolean
   firstName: string | null
   lastName: string | null
+  phoneNumber: string | null
   emergencyContactName: string | null
   emergencyContactPhone: string | null
   setRole: (role: UserRole) => void
   setProfile: (profile: UserProfile) => void
   signInWithPassword: (email: string, password: string) => Promise<{ error: { message: string } | null }>
-  signUp: (email: string, password: string) => Promise<{ error: { message: string } | null }>
+  signUp: (email: string, password: string, firstName: string, lastName: string, phoneNumber: string) => Promise<{ error: { message: string } | null }>
   signOut: () => Promise<void>
 }
 
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoaded, setProfileLoaded] = useState(isDemoMode)
   const [firstName, setFirstName] = useState<string | null>(null)
   const [lastName, setLastName] = useState<string | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null)
   const [emergencyContactName, setEmergencyContactName] = useState<string | null>(null)
   const [emergencyContactPhone, setEmergencyContactPhone] = useState<string | null>(null)
 
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(profile.role)
     setFirstName(profile.first_name)
     setLastName(profile.last_name)
+    setPhoneNumber(profile.phone_number)
     setEmergencyContactName(profile.emergency_contact_name)
     setEmergencyContactPhone(profile.emergency_contact_phone)
   }
@@ -116,15 +119,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signUp(email: string, password: string) {
+  async function signUp(email: string, password: string, firstName: string, lastName: string, phoneNumber: string) {
     if (isDemoMode) {
       setSession(DEMO_SESSION)
       return { error: null }
     }
     try {
-      const result = await authSignup(email, password)
+      const result = await authSignup(email, password, firstName, lastName, phoneNumber)
       const authUser: AuthUser = { id: result.user.id, email: result.user.email }
       setSession({ token: result.token, user: authUser })
+      // Set profile data immediately from signup
+      setFirstName(firstName)
+      setLastName(lastName)
+      setPhoneNumber(phoneNumber)
       setProfileLoaded(true)
       return { error: null }
     } catch (err: unknown) {
@@ -140,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileLoaded(false)
     setFirstName(null)
     setLastName(null)
+    setPhoneNumber(null)
     setEmergencyContactName(null)
     setEmergencyContactPhone(null)
   }
@@ -162,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profileLoaded,
         firstName,
         lastName,
+        phoneNumber,
         emergencyContactName,
         emergencyContactPhone,
         setRole,

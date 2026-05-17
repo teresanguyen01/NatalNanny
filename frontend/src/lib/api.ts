@@ -57,10 +57,22 @@ export async function authLogin(email: string, password: string): Promise<AuthRe
   return res
 }
 
-export async function authSignup(email: string, password: string): Promise<AuthResult> {
+export async function authSignup(
+  email: string,
+  password: string,
+  firstName: string,
+  lastName: string,
+  phoneNumber: string
+): Promise<AuthResult> {
   const res = await fetchApi<AuthResult>('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      first_name: firstName,
+      last_name: lastName,
+      phone_number: phoneNumber,
+    }),
   })
   localStorage.setItem('token', res.token)
   return res
@@ -107,6 +119,7 @@ export interface UserProfile {
   mascot_health: number
   first_name: string | null
   last_name: string | null
+  phone_number: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
   created_at: string
@@ -130,6 +143,7 @@ export function updateProfile(data: {
   mascot_health?: number
   first_name?: string
   last_name?: string
+  phone_number?: string
   emergency_contact_name?: string
   emergency_contact_phone?: string
 }): Promise<UserProfile> {

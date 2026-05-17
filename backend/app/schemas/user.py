@@ -7,12 +7,21 @@ from pydantic import BaseModel, Field
 from app.models.user import UserRole
 
 
+class SignupRequest(BaseModel):
+    email: str = Field(..., max_length=320)
+    password: str = Field(..., min_length=6)
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    phone_number: str = Field(..., max_length=30, pattern=r'^\+?[1-9]\d{1,14}$')
+
+
 class UserProfileRead(BaseModel):
     id: UUID
     role: UserRole | None
     mascot_health: int
     first_name: str | None = None
     last_name: str | None = None
+    phone_number: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
     created_at: datetime
@@ -26,6 +35,7 @@ class UserProfileUpdate(BaseModel):
     role: UserRole | None = None
     first_name: str | None = Field(None, max_length=100)
     last_name: str | None = Field(None, max_length=100)
+    phone_number: str | None = Field(None, max_length=30, pattern=r'^\+?[1-9]\d{1,14}$')
     emergency_contact_name: str | None = Field(None, max_length=200)
     emergency_contact_phone: str | None = Field(None, max_length=30)
 
