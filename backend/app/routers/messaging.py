@@ -283,7 +283,7 @@ def list_messages(
     response_model=MessageRead,
     status_code=status.HTTP_201_CREATED,
 )
-def send_message(
+async def send_message(
     thread_id: uuid.UUID, payload: MessageCreate, user: Auth, db: DB
 ) -> MessageRead:
     """Send a message. For agent threads, agent replies are handled async (TODO)."""
@@ -303,6 +303,10 @@ def send_message(
     _touch_thread(db, thread)
     db.commit()
     db.refresh(msg)
+
+    # Broadcast to WebSocket subscribers so recipients get real-time updates
+    outbound = {"type": "message", "data": _msg_to_schema(msg).model_dump(mode="json")}
+    await _manager.broadcast(str(thread_id), outbound)
 
     # TODO: for agent threads, enqueue async agent reply via task queue
     return _msg_to_schema(msg)
