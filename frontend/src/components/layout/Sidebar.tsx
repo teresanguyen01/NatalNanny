@@ -95,7 +95,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar() {
-  const { displayName, signOut } = useAuth();
+  const { displayName, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -150,6 +150,26 @@ export default function Sidebar() {
 
         {/* Nav items */}
         <nav className="flex-1 space-y-1 px-3">
+          {isAdmin && (
+            <>
+              <NavLink
+                to="/admin/users"
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) =>
+                  [
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-nn-deep-blue text-white shadow-sm"
+                      : "text-nn-navy hover:bg-nn-mist hover:text-nn-navy",
+                  ].join(" ")
+                }
+              >
+                <IconShield />
+                Admin Panel
+              </NavLink>
+              <div className="my-2 border-t border-nn-mist/50" />
+            </>
+          )}
           {NAV_ITEMS.map(({ to, label, Icon }) => (
             <NavLink
               key={to}

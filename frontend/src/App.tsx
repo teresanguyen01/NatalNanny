@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { AppProvider } from './contexts/AppContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import AdminRoute from './components/auth/AdminRoute'
 import AppShell from './components/layout/AppShell'
+import AdminShell from './components/admin/AdminShell'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import RoleSelectionPage from './pages/RoleSelectionPage'
@@ -13,6 +15,10 @@ import CheckupResultsPage from './pages/CheckupResultsPage'
 import SignupPage from './pages/SignupPage'
 import SettingsPage from './pages/SettingsPage'
 import RoleGate from './components/auth/RoleGate'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminUserDetailPage from './pages/admin/AdminUserDetailPage'
+import AdminActionsPage from './pages/admin/AdminActionsPage'
+import AdminAuditPage from './pages/admin/AdminAuditPage'
 
 export default function App() {
   return (
@@ -32,6 +38,14 @@ export default function App() {
                   <Route path="/checkup" element={<CheckupPage />} />
                   <Route path="/checkup/results" element={<CheckupResultsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                </Route>
+              </Route>
+              <Route element={<AdminRoute />}>
+                <Route element={<AdminShell />}>
+                  <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/users/:userId" element={<AdminUserDetailPage />} />
+                  <Route path="/admin/actions" element={<AdminActionsPage />} />
+                  <Route path="/admin/audit" element={<AdminAuditPage />} />
                 </Route>
               </Route>
             </Route>

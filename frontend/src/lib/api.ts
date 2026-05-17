@@ -128,6 +128,7 @@ export interface MessagesPage {
 export interface UserProfile {
   id: string
   role: 'patient' | 'doctor' | null
+  is_admin: boolean
   mascot_health: number
   first_name: string | null
   last_name: string | null
