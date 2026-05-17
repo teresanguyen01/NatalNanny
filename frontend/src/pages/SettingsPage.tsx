@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { mockUser } from '../data/mockData'
 import { useAuth } from '../contexts/AuthContext'
-import { listMyPatients, addPatient, removePatient, type DoctorPatientLink } from '../lib/api'
+import { listMyPatients, addPatient, removePatient, listMyDoctors, type DoctorPatientLink } from '../lib/api'
 
 export default function SettingsPage() {
   const { displayName, signOut, role, isDemoMode } = useAuth()
@@ -41,9 +41,12 @@ export default function SettingsPage() {
           {/* Doctor: My Patients card */}
           {role === 'doctor' && <DoctorPatientsCard />}
 
+          {/* Patient: My Care Team card */}
+          {role === 'patient' && <PatientCareTeamCard />}
+
           {/* Health context card (patient only) */}
           {role === 'patient' && (
-            <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
+            <div className="fade-up fade-up-3 rounded-3xl bg-white p-6 shadow-sm">
               <h2 className="mb-4 font-semibold text-nn-navy">Health Context</h2>
               <div className="space-y-3">
                 <SettingRow label="Gestational Week" value={`Week ${mockUser.gestationalWeek} of 40`} />
@@ -67,7 +70,7 @@ export default function SettingsPage() {
           )}
 
           {/* Notification preferences */}
-          <div className="fade-up fade-up-4 rounded-3xl bg-white p-6 shadow-sm">
+          <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
             <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
             <div className="space-y-3">
               {[
@@ -98,7 +101,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Safety notice */}
-          <div className="fade-up fade-up-5 rounded-3xl border border-amber-200 bg-amber-50 p-6">
+          <div className="fade-up fade-up-6 rounded-3xl border border-amber-200 bg-amber-50 p-6">
             <div className="flex gap-3">
               <svg viewBox="0 0 20 20" fill="none" stroke="#d97706" strokeWidth="1.8" className="mt-0.5 h-5 w-5 flex-shrink-0">
                 <path d="M10 2L2 17h16L10 2Z" strokeLinejoin="round" />
@@ -220,6 +223,78 @@ function DoctorPatientsCard() {
       {error && (
         <p className="mt-2 text-xs text-red-500">{error}</p>
       )}
+    </div>
+  )
+}
+
+function PatientCareTeamCard() {
+  const { user, isDemoMode } = useAuth()
+  const [doctors, setDoctors] = useState<DoctorPatientLink[]>([])
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (isDemoMode) return
+    listMyDoctors()
+      .then(setDoctors)
+      .catch(() => {})
+  }, [isDemoMode])
+
+  async function handleCopy() {
+    if (!user?.id) return
+    try {
+      await navigator.clipboard.writeText(user.id)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Graceful fallback for older browsers
+    }
+  }
+
+  const displayId = isDemoMode ? 'demo-patient-id' : user?.id
+
+  return (
+    <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
+      <h2 className="mb-4 font-semibold text-nn-navy">My Care Team</h2>
+
+      {/* UUID section */}
+      <div className="mb-5">
+        <p className="mb-2 text-xs font-medium text-nn-navy-light uppercase tracking-wider">Your ID</p>
+        <div className="flex gap-2">
+          <div className="flex-1 rounded-xl bg-nn-pale-sky px-4 py-3 font-mono text-xs text-nn-navy break-all">
+            {displayId}
+          </div>
+          <button
+            onClick={handleCopy}
+            className="flex h-auto items-center justify-center rounded-xl bg-nn-deep-blue px-4 py-3 text-xs font-medium text-white hover:bg-nn-deep-blue/90 transition-colors"
+          >
+            {copied ? '✓ Copied!' : 'Copy ID'}
+          </button>
+        </div>
+      </div>
+
+      {/* Doctors section */}
+      <div>
+        <p className="mb-2 text-xs font-medium text-nn-navy-light uppercase tracking-wider">Assigned Doctors</p>
+        {doctors.length === 0 ? (
+          <p className="text-sm text-nn-navy-light">No doctors assigned yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {doctors.map((d) => (
+              <div
+                key={d.doctor_id}
+                className="flex items-center gap-3 rounded-2xl bg-nn-pale-sky px-4 py-3"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nn-deep-blue text-xs font-bold text-white flex-shrink-0">
+                  Dr
+                </div>
+                <span className="text-sm font-medium text-nn-navy truncate">
+                  {d.doctor_id}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
