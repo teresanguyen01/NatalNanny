@@ -53,6 +53,14 @@ def update_profile(payload: UserProfileUpdate, user: Auth, db: DB) -> UserProfil
     profile = _get_or_create_profile(db, user.id)
     if payload.mascot_health is not None:
         profile.mascot_health = payload.mascot_health
+    if payload.role is not None:
+        # Role can only be set once (first-time setup)
+        if profile.role is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Role has already been set and cannot be changed.",
+            )
+        profile.role = payload.role
     db.commit()
     db.refresh(profile)
     return profile

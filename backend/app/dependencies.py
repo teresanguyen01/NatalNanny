@@ -1,7 +1,8 @@
 from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
 from .config import Settings, get_settings
 
@@ -19,21 +20,13 @@ def get_current_user(
 ) -> CurrentUser:
     token = credentials.credentials
 
-    if not settings.supabase_jwt_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="SUPABASE_JWT_SECRET is not configured on the server.",
-        )
-
     try:
         payload = jwt.decode(
             token,
-            settings.supabase_jwt_secret,
+            settings.jwt_secret,
             algorithms=["HS256"],
-            # Supabase tokens use "authenticated" as the audience
-            audience="authenticated",
         )
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired token: {exc}",

@@ -2,12 +2,13 @@ import { type FormEvent, useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-export default function LoginPage() {
-  const { signInWithPassword, session, isDemoMode } = useAuth()
+export default function SignupPage() {
+  const { signUp, session, isDemoMode } = useAuth()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -18,14 +19,25 @@ export default function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+
     setLoading(true)
-    const { error } = await signInWithPassword(email, password)
+    const { error } = await signUp(email, password)
     setLoading(false)
+
     if (error) {
       setError(error.message)
-    } else {
-      navigate('/dashboard', { replace: true })
     }
+    // Navigation happens via the useEffect watching `session` above
   }
 
   return (
@@ -41,7 +53,7 @@ export default function LoginPage() {
             </div>
             <span className="text-xl font-bold tracking-tight text-nn-navy">NatalNanny</span>
           </Link>
-          <p className="text-sm text-nn-navy-light">Sign in to your wellness account</p>
+          <p className="text-sm text-nn-navy-light">Create your wellness account</p>
         </div>
 
         {/* Card */}
@@ -71,9 +83,25 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="mt-1.5 block w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-3 text-sm text-nn-navy outline-none transition focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirm-password" className="block text-sm font-medium text-nn-navy">
+                Confirm password
+              </label>
+              <input
+                id="confirm-password"
+                type="password"
+                required
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="mt-1.5 block w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-3 text-sm text-nn-navy outline-none transition focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
                 placeholder="••••••••"
               />
@@ -90,14 +118,14 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-xl bg-nn-deep-blue px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-nn-navy-light disabled:opacity-60"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-nn-navy-light">
-            Don&apos;t have an account?{' '}
-            <Link to="/signup" className="font-medium text-nn-deep-blue hover:underline">
-              Sign up
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-nn-deep-blue hover:underline">
+              Sign in
             </Link>
           </p>
         </div>

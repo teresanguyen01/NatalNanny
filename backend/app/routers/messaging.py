@@ -1,7 +1,7 @@
 """Messaging router — REST thread/message management + WebSocket real-time channel.
 
 WebSocket protocol:
-  Connect:  WS /ws/messaging/{thread_id}?token=<supabase_jwt>
+  Connect:  WS /ws/messaging/{thread_id}?token=<jwt>
   Inbound:  { "type": "message",  "content": "..." }
             { "type": "typing",   "is_typing": true/false }
             { "type": "read",     "message_id": "..." }
@@ -22,7 +22,9 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
+from app.models.doctor_patient import DoctorPatient
 from app.models.messaging import Message, MessageThread, SenderType, ThreadParticipant, ThreadType
+from app.models.user import UserProfile, UserRole
 from app.schemas.messaging import (
     MessageCreate,
     MessageRead,
@@ -30,6 +32,7 @@ from app.schemas.messaging import (
     ThreadCreate,
     ThreadRead,
 )
+from app.schemas.user import ContactRead
 
 router = APIRouter(tags=["messaging"])
 ws_router = APIRouter(tags=["messaging-ws"])
@@ -94,6 +97,63 @@ def _touch_thread(db: Session, thread: MessageThread) -> None:
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 
+@router.get("/messaging/contacts", response_model=list[ContactRead])
+def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
+    """Return messaging contacts based on user role.
+
+    Doctor → their patients. Patient → their doctors. Both include AI agent as synthetic contact.
+    """
+    profile = db.get(UserProfile, uuid.UUID(user.id))
+    contacts: list[ContactRead] = []
+
+    if profile and profile.role == UserRole.doctor:
+        # Return patients
+        links = db.execute(
+            select(DoctorPatient.patient_id).where(
+                DoctorPatient.doctor_id == uuid.UUID(user.id)
+            )
+        ).scalars().all()
+        if links:
+            patients = db.execute(
+                select(UserProfile).where(UserProfile.id.in_(links))
+            ).scalars().all()
+            for p in patients:
+                contacts.append(ContactRead(
+                    id=str(p.id),
+                    role=p.role,
+                    display_name=f"Patient {str(p.id)[:8]}",
+                    email=None,
+                ))
+    elif profile and profile.role == UserRole.patient:
+        # Return doctors
+        links = db.execute(
+            select(DoctorPatient.doctor_id).where(
+                DoctorPatient.patient_id == uuid.UUID(user.id)
+            )
+        ).scalars().all()
+        if links:
+            doctors = db.execute(
+                select(UserProfile).where(UserProfile.id.in_(links))
+            ).scalars().all()
+            for d in doctors:
+                contacts.append(ContactRead(
+                    id=str(d.id),
+                    role=d.role,
+                    display_name=f"Doctor {str(d.id)[:8]}",
+                    email=None,
+                ))
+
+    # Always include AI agent as synthetic contact
+    contacts.append(ContactRead(
+        id="ai-agent",
+        role=None,
+        display_name="NatalNanny AI",
+        email=None,
+    ))
+
+    return contacts
+
+
 @router.get("/messaging/threads", response_model=list[ThreadRead])
 def list_threads(user: Auth, db: DB) -> list[MessageThread]:
     """List all threads the current user participates in."""
@@ -113,12 +173,45 @@ def list_threads(user: Auth, db: DB) -> list[MessageThread]:
 
 @router.post("/messaging/threads", response_model=ThreadRead, status_code=status.HTTP_201_CREATED)
 def create_thread(payload: ThreadCreate, user: Auth, db: DB) -> MessageThread:
-    """Create a new user-to-user thread."""
+    """Create a new user-to-user thread. Requires a doctor-patient relationship."""
+    all_participants = list({uuid.UUID(user.id), *payload.participant_ids})
+
+    # Access control: verify doctor-patient relationship exists
+    if len(all_participants) == 2:
+        p1, p2 = all_participants
+        relationship = db.execute(
+            select(DoctorPatient).where(
+                ((DoctorPatient.doctor_id == p1) & (DoctorPatient.patient_id == p2))
+                | ((DoctorPatient.doctor_id == p2) & (DoctorPatient.patient_id == p1))
+            )
+        ).scalar_one_or_none()
+        if relationship is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No doctor-patient relationship exists between participants.",
+            )
+
+    # Deduplication: find existing thread with same participants
+    my_thread_ids = db.execute(
+        select(ThreadParticipant.thread_id).where(
+            ThreadParticipant.user_id == uuid.UUID(user.id)
+        )
+    ).scalars().all()
+    if my_thread_ids:
+        for tid in my_thread_ids:
+            thread_participants = db.execute(
+                select(ThreadParticipant.user_id).where(ThreadParticipant.thread_id == tid)
+            ).scalars().all()
+            if set(thread_participants) == set(all_participants):
+                # Check it's a user thread
+                existing_thread = db.get(MessageThread, tid)
+                if existing_thread and existing_thread.type == ThreadType.user:
+                    return existing_thread
+
     thread = MessageThread(type=ThreadType.user)
     db.add(thread)
     db.flush()
 
-    all_participants = list({uuid.UUID(user.id), *payload.participant_ids})
     for pid in all_participants:
         db.add(ThreadParticipant(thread_id=thread.id, user_id=pid))
 
@@ -219,22 +312,23 @@ def send_message(
 
 
 async def _ws_authenticate(token: str | None, cfg: Settings) -> CurrentUser | None:
-    """Verify a Supabase JWT from a WebSocket query param."""
+    """Verify a JWT from a WebSocket query param."""
     if not token:
         return None
-    from jose import JWTError, jwt as jose_jwt
+    import jwt
+    from jwt.exceptions import InvalidTokenError
+
     try:
-        payload = jose_jwt.decode(
+        payload = jwt.decode(
             token,
-            cfg.supabase_jwt_secret,
+            cfg.jwt_secret,
             algorithms=["HS256"],
-            audience="authenticated",
         )
         user_id = payload.get("sub")
         email = payload.get("email")
         if user_id and email:
             return CurrentUser(id=user_id, email=email)
-    except JWTError:
+    except InvalidTokenError:
         pass
     return None
 
@@ -249,7 +343,7 @@ async def websocket_messaging(
 ) -> None:
     """Real-time messaging channel for a thread.
 
-    Auth: pass the Supabase JWT as ?token=<jwt>
+    Auth: pass the JWT as ?token=<jwt>
     """
     current_user = await _ws_authenticate(token, cfg)
     if current_user is None:

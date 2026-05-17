@@ -36,3 +36,8 @@ build/
 # Supabase local dev
 supabase/.branches/
 supabase/.temp/
+
+# Agents
+.claude/
+.cursor.md
+CLAUDE.md
