@@ -6,12 +6,14 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
-from app.models.user import HealthRecord, UserProfile
+from app.models.doctor_patient import ConnectionStatus, DoctorPatient
+from app.models.user import HealthRecord, UserProfile, UserRole
 from app.schemas.user import (
     HealthRecordRead,
     HealthRecordUpdate,
     UserProfileRead,
     UserProfileUpdate,
+    UserSearchResult,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -38,6 +40,19 @@ def _get_or_create_health_record(db: Session, user_id: str) -> HealthRecord:
         db.commit()
         db.refresh(record)
     return record
+
+
+def _format_display_name(profile: UserProfile) -> str:
+    """Generate a user-friendly display name from a profile."""
+    if profile.first_name and profile.last_name:
+        return f"{profile.first_name} {profile.last_name}"
+    if profile.first_name:
+        return profile.first_name
+    if profile.last_name:
+        return profile.last_name
+    # Fallback to role + partial UUID
+    role_label = "Patient" if profile.role == UserRole.patient else "Doctor"
+    return f"{role_label} {str(profile.id)[:8]}"
 
 
 # ── Profile ──────────────────────────────────────────────────────────────────
@@ -94,3 +109,133 @@ def update_health_record(
     db.commit()
     db.refresh(record)
     return record
+
+
+# ── User Search ───────────────────────────────────────────────────────────────
+
+
+@router.get("/search", response_model=list[UserSearchResult])
+def search_users(q: str, user: Auth, db: DB, limit: int = 20) -> list[UserSearchResult]:
+    """Search for users by name. Returns opposite role only (doctors see patients, patients see doctors)."""
+    current_profile = _get_or_create_profile(db, user.id)
+
+    if not current_profile.role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must select a role before searching for users.",
+        )
+
+    # Determine opposite role
+    target_role = UserRole.patient if current_profile.role == UserRole.doctor else UserRole.doctor
+
+    # Search by first name, last name, or full name (case-insensitive)
+    search_term = f"%{q.lower()}%"
+    results = (
+        db.query(UserProfile)
+        .filter(
+            UserProfile.role == target_role,
+            UserProfile.id != uuid.UUID(user.id),  # Exclude self
+            (
+                UserProfile.first_name.ilike(search_term)
+                | UserProfile.last_name.ilike(search_term)
+                | (
+                    (UserProfile.first_name + " " + UserProfile.last_name).ilike(
+                        search_term
+                    )
+                )
+            ),
+        )
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        UserSearchResult(
+            id=p.id,
+            first_name=p.first_name,
+            last_name=p.last_name,
+            display_name=_format_display_name(p),
+            role=p.role,
+        )
+        for p in results
+    ]
+
+
+# ── Doctor Access to Patient Data ────────────────────────────────────────────
+
+
+@router.get("/{user_id}/health-record", response_model=HealthRecordRead)
+def get_user_health_record(user_id: str, user: Auth, db: DB) -> HealthRecord:
+    """Doctors can access health records of connected patients."""
+    current_profile = _get_or_create_profile(db, user.id)
+
+    if current_profile.role != UserRole.doctor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only doctors can access patient health records.",
+        )
+
+    # Verify accepted connection exists
+    connection = (
+        db.query(DoctorPatient)
+        .filter(
+            DoctorPatient.doctor_id == uuid.UUID(user.id),
+            DoctorPatient.patient_id == uuid.UUID(user_id),
+            DoctorPatient.status == ConnectionStatus.accepted,
+        )
+        .first()
+    )
+
+    if not connection:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must have an accepted connection to access this patient's health record.",
+        )
+
+    return _get_or_create_health_record(db, user_id)
+
+
+@router.get("/{user_id}/profile", response_model=UserProfileRead)
+def get_user_profile(user_id: str, user: Auth, db: DB) -> UserProfile:
+    """Access connected user's profile (bidirectional for doctors and patients)."""
+    current_profile = _get_or_create_profile(db, user.id)
+
+    if not current_profile.role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must select a role before accessing user profiles.",
+        )
+
+    # Check for accepted connection (bidirectional)
+    connection = (
+        db.query(DoctorPatient)
+        .filter(
+            (
+                (
+                    (DoctorPatient.doctor_id == uuid.UUID(user.id))
+                    & (DoctorPatient.patient_id == uuid.UUID(user_id))
+                )
+                | (
+                    (DoctorPatient.patient_id == uuid.UUID(user.id))
+                    & (DoctorPatient.doctor_id == uuid.UUID(user_id))
+                )
+            ),
+            DoctorPatient.status == ConnectionStatus.accepted,
+        )
+        .first()
+    )
+
+    if not connection:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must have an accepted connection to access this user's profile.",
+        )
+
+    target_profile = db.get(UserProfile, uuid.UUID(user_id))
+    if not target_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
+        )
+
+    return target_profile

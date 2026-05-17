@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.doctor_patient import ConnectionStatus
 from app.models.user import UserRole
 
 
@@ -63,3 +64,28 @@ class ContactRead(BaseModel):
     role: UserRole | None
     display_name: str
     email: str | None = None
+
+
+class UserSearchResult(BaseModel):
+    """Result from user search endpoint."""
+
+    id: UUID
+    first_name: str | None
+    last_name: str | None
+    display_name: str
+    role: UserRole
+
+
+class ConnectionRequestCreate(BaseModel):
+    """Request to establish a doctor-patient connection."""
+
+    target_user_id: UUID
+
+
+class ConnectionWithStatus(DoctorPatientRead):
+    """Doctor-patient connection with status information."""
+
+    status: ConnectionStatus
+    initiator_id: UUID
+
+    model_config = {"from_attributes": True}
