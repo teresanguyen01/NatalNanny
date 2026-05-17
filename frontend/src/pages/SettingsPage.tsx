@@ -14,9 +14,12 @@ import {
   listHealthDocuments,
   uploadHealthDocument,
   deleteHealthDocument,
+  getNotificationPreferences,
+  updateNotificationPreferences,
   type DoctorPatientLink,
   type DoctorPatientLinkWithStatus,
   type HealthDocument,
+  type NotificationPreferences,
 } from '../lib/api'
 
 export default function SettingsPage() {
@@ -99,35 +102,7 @@ export default function SettingsPage() {
 
           {/* Preferences tab */}
           {activeTab === 'preferences' && (
-            <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
-            <div className="space-y-3">
-              {[
-                { label: 'Daily checkup reminder', checked: true },
-                { label: 'Streak milestone alerts', checked: true },
-                { label: 'Doctor message notifications', checked: true },
-                { label: 'AI wellness summaries', checked: false },
-              ].map(({ label, checked }) => (
-                <div key={label} className="flex items-center justify-between py-2 border-b border-nn-mist/60 last:border-0">
-                  <span className="text-sm text-nn-navy">{label}</span>
-                  <button
-                    className={[
-                      'relative h-6 w-11 rounded-full transition-colors',
-                      checked ? 'bg-nn-deep-blue' : 'bg-nn-mist',
-                    ].join(' ')}
-                    aria-label={`Toggle ${label}`}
-                  >
-                    <span
-                      className={[
-                        'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                        checked ? 'translate-x-6' : 'translate-x-1',
-                      ].join(' ')}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+            <NotificationPreferencesCard />
           )}
 
           {/* Safety notice - always visible */}
@@ -899,6 +874,100 @@ function HealthDocumentsCard() {
         NatalNanny uses uploaded documents to support wellness summaries and care-team questions.
         It does not replace medical advice.
       </p>
+    </div>
+  )
+}
+
+function NotificationPreferencesCard() {
+  const { isDemoMode } = useAuth()
+  const [prefs, setPrefs] = useState<NotificationPreferences>({
+    daily_reminder: true,
+    streak_alerts: true,
+    message_notifications: true,
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (isDemoMode) { setLoading(false); return }
+    getNotificationPreferences()
+      .then(setPrefs)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [isDemoMode])
+
+  async function toggle(key: keyof NotificationPreferences) {
+    if (isDemoMode || saving) return
+    const updated = { ...prefs, [key]: !prefs[key] }
+    setPrefs(updated)
+    setSaving(true)
+    try {
+      const saved = await updateNotificationPreferences(updated)
+      setPrefs(saved)
+    } catch {
+      setPrefs(prefs) // revert on failure
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const items: { label: string; key: keyof NotificationPreferences; description: string }[] = [
+    {
+      label: 'Daily checkup reminder',
+      key: 'daily_reminder',
+      description: 'Email at 8 AM your time if you haven\'t checked in',
+    },
+    {
+      label: 'Streak milestone alerts',
+      key: 'streak_alerts',
+      description: 'Email at 12 PM your time to keep your streak going',
+    },
+    {
+      label: 'Doctor message notifications',
+      key: 'message_notifications',
+      description: 'Email when your care team sends you a message',
+    },
+  ]
+
+  return (
+    <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
+      <h2 className="mb-1 font-semibold text-nn-navy">Email Notifications</h2>
+      <p className="mb-4 text-xs text-nn-navy-light">
+        Emails are sent to the address you signed up with.
+      </p>
+      {loading ? (
+        <div className="flex justify-center py-4">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-nn-periwinkle border-t-nn-deep-blue" />
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {items.map(({ label, key, description }) => (
+            <div key={key} className="flex items-start justify-between gap-4 py-3 border-b border-nn-mist/60 last:border-0">
+              <div>
+                <p className="text-sm text-nn-navy">{label}</p>
+                <p className="text-xs text-nn-navy-light mt-0.5">{description}</p>
+              </div>
+              <button
+                onClick={() => toggle(key)}
+                disabled={saving || isDemoMode}
+                className={[
+                  'relative mt-0.5 h-6 w-11 flex-shrink-0 rounded-full transition-colors disabled:opacity-60',
+                  prefs[key] ? 'bg-nn-deep-blue' : 'bg-nn-mist',
+                ].join(' ')}
+                aria-label={`Toggle ${label}`}
+                aria-pressed={prefs[key]}
+              >
+                <span
+                  className={[
+                    'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                    prefs[key] ? 'translate-x-6' : 'translate-x-1',
+                  ].join(' ')}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

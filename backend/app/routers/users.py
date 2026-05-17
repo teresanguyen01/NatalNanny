@@ -89,6 +89,45 @@ def update_profile(payload: UserProfileUpdate, user: Auth, db: DB) -> UserProfil
     return profile
 
 
+# ── Notification preferences ──────────────────────────────────────────────────
+
+
+from pydantic import BaseModel as _BaseModel
+
+
+class NotificationPreferences(_BaseModel):
+    daily_reminder: bool
+    streak_alerts: bool
+    message_notifications: bool
+
+
+@router.get("/me/notification-preferences", response_model=NotificationPreferences)
+def get_notification_preferences(user: Auth, db: DB) -> NotificationPreferences:
+    profile = _get_or_create_profile(db, user.id)
+    return NotificationPreferences(
+        daily_reminder=profile.email_daily_reminder_enabled,
+        streak_alerts=profile.email_streak_alert_enabled,
+        message_notifications=profile.email_message_notification_enabled,
+    )
+
+
+@router.patch("/me/notification-preferences", response_model=NotificationPreferences)
+def update_notification_preferences(
+    payload: NotificationPreferences, user: Auth, db: DB
+) -> NotificationPreferences:
+    profile = _get_or_create_profile(db, user.id)
+    profile.email_daily_reminder_enabled = payload.daily_reminder
+    profile.email_streak_alert_enabled = payload.streak_alerts
+    profile.email_message_notification_enabled = payload.message_notifications
+    db.commit()
+    db.refresh(profile)
+    return NotificationPreferences(
+        daily_reminder=profile.email_daily_reminder_enabled,
+        streak_alerts=profile.email_streak_alert_enabled,
+        message_notifications=profile.email_message_notification_enabled,
+    )
+
+
 # ── Health record ─────────────────────────────────────────────────────────────
 
 
