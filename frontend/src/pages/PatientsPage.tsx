@@ -18,26 +18,16 @@ const MOCK_PATIENTS: DoctorPatientLink[] = [
   {
     doctor_id: 'demo-doctor',
     patient_id: 'demo-patient-1',
-    status: 'accepted',
     created_at: new Date().toISOString(),
-    patient_profile: {
-      id: 'demo-patient-1',
-      role: 'patient',
-      display_name: 'Sarah Johnson',
-      email: 'sarah.j@example.com',
-    },
+    patient_display_name: 'Sarah Johnson',
+    doctor_display_name: 'Dr. Demo',
   },
   {
     doctor_id: 'demo-doctor',
     patient_id: 'demo-patient-2',
-    status: 'accepted',
     created_at: new Date().toISOString(),
-    patient_profile: {
-      id: 'demo-patient-2',
-      role: 'patient',
-      display_name: 'Emma Williams',
-      email: 'emma.w@example.com',
-    },
+    patient_display_name: 'Emma Williams',
+    doctor_display_name: 'Dr. Demo',
   },
 ]
 
