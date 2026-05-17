@@ -106,6 +106,7 @@ export default function SettingsPage() {
           )}
 
           {/* Safety notice - always visible */}
+          {/*
           <div className="fade-up fade-up-6 rounded-3xl border border-amber-200 bg-amber-50 p-6">
             <div className="flex gap-3">
               <svg viewBox="0 0 20 20" fill="none" stroke="#d97706" strokeWidth="1.8" className="mt-0.5 h-5 w-5 flex-shrink-0">
@@ -123,6 +124,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          */}
 
           {/* Sign out */}
           <div className="fade-up text-center">
