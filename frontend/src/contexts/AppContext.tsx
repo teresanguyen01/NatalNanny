@@ -40,12 +40,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [checkupResult, setCheckupResultState] = useState<CheckupResult | null>(null)
   const [resultsByDate, setResultsByDate] = useState<Record<string, CheckupResult>>({})
 
-  function setCheckupResult(r: CheckupResult) {
+  const setCheckupResult = useCallback((r: CheckupResult) => {
     setCheckupResultState(r)
     // Also index by date so the calendar can look it up
     const date = r.created_at.substring(0, 10)
     setResultsByDate(prev => ({ ...prev, [date]: r }))
-  }
+  }, [])
 
   const addResultForDate = useCallback((date: string, result: CheckupResult) => {
     setResultsByDate(prev => ({ ...prev, [date]: result }))
