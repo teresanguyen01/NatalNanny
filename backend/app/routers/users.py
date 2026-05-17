@@ -25,7 +25,7 @@ DB = Annotated[Session, Depends(get_db)]
 def _get_or_create_profile(db: Session, user_id: str) -> UserProfile:
     profile = db.get(UserProfile, user_id)
     if profile is None:
-        profile = UserProfile(id=uuid.UUID(user_id), mascot_health=50)
+        profile = UserProfile(id=uuid.UUID(user_id), mascot_health=80)
         db.add(profile)
         db.commit()
         db.refresh(profile)

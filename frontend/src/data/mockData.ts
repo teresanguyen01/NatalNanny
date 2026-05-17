@@ -12,7 +12,7 @@ export const mockUser = {
 }
 
 export const mockStreak = {
-  count: 7,
+  count: 1,
   lastCheckupDate: '2026-05-15',
   weeklyGoal: 7,
 }
