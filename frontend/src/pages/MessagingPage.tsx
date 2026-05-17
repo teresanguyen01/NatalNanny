@@ -1,9 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getContacts, createThread, type Contact } from '../lib/api'
+import {
+  getContacts,
+  createThread,
+  getReceivedMessageRequests,
+  acceptMessageRequest,
+  rejectMessageRequest,
+  getMessages,
+  type Contact,
+  type ThreadWithStatus,
+  type UserSearchResult,
+} from '../lib/api'
 import ChatPanel from '../components/messaging/ChatPanel'
 import AIAgentChat from '../components/messaging/AIAgentChat'
+import UserSearchModal from '../components/messaging/UserSearchModal'
+import MessageRequestModal from '../components/messaging/MessageRequestModal'
+import MessageRequestItem from '../components/messaging/MessageRequestItem'
 
 export default function MessagingPage() {
   const { isDemoMode } = useAuth()
@@ -13,6 +26,14 @@ export default function MessagingPage() {
   const [mobileShowChat, setMobileShowChat] = useState(false)
   const [threadId, setThreadId] = useState<string | null>(null)
   const [loadingThread, setLoadingThread] = useState(false)
+
+  // Message request management
+  const [activeTab, setActiveTab] = useState<'active' | 'requests'>('active')
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null)
+  const [messageRequests, setMessageRequests] = useState<ThreadWithStatus[]>([])
+  const [requestMessages, setRequestMessages] = useState<Map<string, string>>(new Map())
 
   // Load contacts
   useEffect(() => {
@@ -27,6 +48,37 @@ export default function MessagingPage() {
       .then(setContacts)
       .catch(() => {})
   }, [isDemoMode])
+
+  // Load message requests
+  useEffect(() => {
+    if (isDemoMode) return
+    loadMessageRequests()
+  }, [isDemoMode])
+
+  async function loadMessageRequests() {
+    try {
+      const requests = await getReceivedMessageRequests()
+      setMessageRequests(requests)
+
+      // Load first message for each request
+      const messages = new Map<string, string>()
+      await Promise.all(
+        requests.map(async (req) => {
+          try {
+            const page = await getMessages(req.id)
+            if (page.items.length > 0) {
+              messages.set(req.id, page.items[0].content)
+            }
+          } catch {
+            // Ignore errors for individual messages
+          }
+        })
+      )
+      setRequestMessages(messages)
+    } catch {
+      // Ignore errors
+    }
+  }
 
   // Handle URL params
   useEffect(() => {
@@ -67,8 +119,42 @@ export default function MessagingPage() {
     }
   }
 
+  async function handleAcceptRequest(threadId: string) {
+    try {
+      await acceptMessageRequest(threadId)
+      await loadMessageRequests()
+      // Refresh contacts to show newly accepted conversation
+      getContacts().then(setContacts).catch(() => {})
+      // Switch to active tab
+      setActiveTab('active')
+    } catch (err) {
+      console.error('Failed to accept request:', err)
+    }
+  }
+
+  async function handleRejectRequest(threadId: string) {
+    try {
+      await rejectMessageRequest(threadId)
+      await loadMessageRequests()
+    } catch (err) {
+      console.error('Failed to reject request:', err)
+    }
+  }
+
+  function handleSelectUser(user: UserSearchResult) {
+    setSelectedUser(user)
+    setShowRequestModal(true)
+  }
+
+  async function handleRequestSuccess() {
+    await loadMessageRequests()
+    // Optionally switch to requests tab
+    setActiveTab('requests')
+  }
+
   const activeContact = contacts.find((c) => c.id === activeContactId)
   const isAI = activeContactId === 'ai-agent'
+  const requestCount = messageRequests.length
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -82,15 +168,93 @@ export default function MessagingPage() {
       >
         {/* Sidebar header */}
         <div className="flex-shrink-0 border-b border-nn-mist px-5 py-5">
-          <h1 className="text-xl font-bold text-nn-navy">Messages</h1>
-          <p className="mt-0.5 text-xs text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
-            Your care team &amp; AI support
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-nn-navy">Messages</h1>
+              <p className="mt-0.5 text-xs text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
+                Your care team &amp; AI support
+              </p>
+            </div>
+            {!isDemoMode && (
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="flex-shrink-0 w-10 h-10 rounded-full bg-nn-deep-blue text-white flex items-center justify-center hover:bg-nn-deep-blue/90 transition-colors shadow-md"
+                aria-label="New message"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Tabs */}
+          {!isDemoMode && (
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === 'active'
+                    ? 'bg-white shadow-sm text-nn-deep-blue'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Active Chats
+              </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`relative flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === 'requests'
+                    ? 'bg-white shadow-sm text-nn-deep-blue'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Requests
+                {requestCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {requestCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Contact list */}
+        {/* Contact list / Request list */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {contacts.map((contact) => {
+          {activeTab === 'requests' && !isDemoMode ? (
+            messageRequests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-900">No message requests</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  New message requests will appear here
+                </p>
+              </div>
+            ) : (
+              messageRequests.map((request) => {
+                // Get display name from the first message sender (will be the other person)
+                const firstMessage = requestMessages.get(request.id) || 'Sent you a message request'
+                const displayName = `User ${request.initiator_id?.slice(0, 8) || 'Unknown'}`
+
+                return (
+                  <MessageRequestItem
+                    key={request.id}
+                    request={request}
+                    displayName={displayName}
+                    firstMessage={firstMessage}
+                    onAccept={() => handleAcceptRequest(request.id)}
+                    onReject={() => handleRejectRequest(request.id)}
+                  />
+                )
+              })
+            )
+          ) : (
+            contacts.map((contact) => {
             const isActive = activeContactId === contact.id
             const isAIContact = contact.id === 'ai-agent'
 
@@ -137,7 +301,8 @@ export default function MessagingPage() {
                 </div>
               </button>
             )
-          })}
+          })
+          )}
         </nav>
 
         {/* Safety notice pinned at bottom */}
@@ -206,6 +371,22 @@ export default function MessagingPage() {
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      <UserSearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        onSelectUser={handleSelectUser}
+      />
+      <MessageRequestModal
+        isOpen={showRequestModal}
+        onClose={() => {
+          setShowRequestModal(false)
+          setSelectedUser(null)
+        }}
+        recipient={selectedUser}
+        onSuccess={handleRequestSuccess}
+      />
     </div>
   )
 }
