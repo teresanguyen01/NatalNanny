@@ -8,6 +8,8 @@ from .routers.messaging import ws_router as messaging_ws_router
 from .routers import rppg
 from .routers import voice_checkup
 from .routers import tts
+from .routers import health_documents
+from .routers import rag_chat
 
 settings = get_settings()
 
@@ -39,6 +41,9 @@ app.include_router(doctor_patients.router, prefix="/api")
 app.include_router(messaging_router, prefix="/api")
 # WebSocket endpoint at /ws/messaging/{thread_id} (no /api prefix)
 app.include_router(messaging_ws_router)
+# Health documents and RAG chat
+app.include_router(health_documents.router, prefix="/api")
+app.include_router(rag_chat.router, prefix="/api")
 
 # Production: mount the built React SPA and serve the index for all unmatched client routes.
 # Uncomment once `npm run build` has been run in frontend/:

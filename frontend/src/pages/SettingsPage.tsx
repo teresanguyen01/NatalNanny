@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { mockUser } from '../data/mockData'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -11,8 +11,12 @@ import {
   getSentConnectionRequests,
   acceptConnectionRequest,
   rejectConnectionRequest,
+  listHealthDocuments,
+  uploadHealthDocument,
+  deleteHealthDocument,
   type DoctorPatientLink,
   type DoctorPatientLinkWithStatus,
+  type HealthDocument,
 } from '../lib/api'
 
 export default function SettingsPage() {
@@ -53,7 +57,12 @@ export default function SettingsPage() {
 
         <div className="space-y-5">
           {/* Profile tab */}
-          {activeTab === 'profile' && <ProfileCard />}
+          {activeTab === 'profile' && (
+            <>
+              <ProfileCard />
+              <HealthDocumentsCard />
+            </>
+          )}
 
           {/* Care Team tab */}
           {activeTab === 'care-team' && (
@@ -711,6 +720,190 @@ function ConnectionRequestsCard() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function HealthDocumentsCard() {
+  const { isDemoMode } = useAuth()
+  const [docs, setDocs] = useState<HealthDocument[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const [uploadSuccess, setUploadSuccess] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isDemoMode) return
+    listHealthDocuments()
+      .then(setDocs)
+      .catch(() => {})
+  }, [isDemoMode])
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadError('Only PDF files are supported.')
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
+    setUploadError('')
+    setUploadSuccess('')
+    setUploading(true)
+    try {
+      const result = await uploadHealthDocument(file)
+      setUploadSuccess(
+        result.warning
+          ? `Uploaded "${result.file_name}" (indexing: ${result.warning})`
+          : `"${result.file_name}" uploaded and indexed.`
+      )
+      const refreshed = await listHealthDocuments()
+      setDocs(refreshed)
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  async function handleDelete(docId: string) {
+    setDeletingId(docId)
+    try {
+      await deleteHealthDocument(docId)
+      setDocs((prev) => prev.filter((d) => d.id !== docId))
+    } catch {
+      // Silent failure — doc still shows
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const statusBadge = (status: HealthDocument['processing_status']) => {
+    const cfg: Record<string, { label: string; cls: string }> = {
+      uploaded:          { label: 'Uploaded',          cls: 'bg-nn-pale-sky text-nn-deep-blue' },
+      processing:        { label: 'Processing…',       cls: 'bg-amber-100 text-amber-700' },
+      indexed:           { label: 'Indexed',           cls: 'bg-emerald-100 text-emerald-700' },
+      partially_indexed: { label: 'Partial',           cls: 'bg-amber-100 text-amber-700' },
+      failed:            { label: 'Failed',            cls: 'bg-red-100 text-red-600' },
+    }
+    const { label, cls } = cfg[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' }
+    return (
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
+        {label}
+      </span>
+    )
+  }
+
+  return (
+    <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
+      <h2 className="mb-1 font-semibold text-nn-navy">Health Documents</h2>
+      <p className="mb-4 text-xs text-nn-navy-light leading-relaxed">
+        Upload PDFs from your care team so NatalNanny can help summarize and reference them
+        during check-ins.
+      </p>
+
+      {/* Upload area */}
+      <label
+        htmlFor="pdf-upload"
+        className={[
+          'flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-6 transition-colors',
+          uploading
+            ? 'border-nn-periwinkle/50 bg-nn-pale-sky/40 cursor-not-allowed'
+            : 'border-nn-mist hover:border-nn-periwinkle hover:bg-nn-pale-sky/40',
+        ].join(' ')}
+      >
+        {uploading ? (
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-nn-periwinkle border-t-nn-deep-blue" />
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-8 w-8">
+            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12 12V4m0 0L8.5 7.5M12 4l3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+        <span className="text-sm font-medium text-nn-navy">
+          {uploading ? 'Uploading…' : 'Click to upload a PDF'}
+        </span>
+        <span className="text-xs text-nn-navy-light">PDF files only · max 20 MB</span>
+        <input
+          id="pdf-upload"
+          ref={inputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          className="sr-only"
+          disabled={uploading || isDemoMode}
+          onChange={handleFileChange}
+        />
+      </label>
+
+      {isDemoMode && (
+        <p className="mt-2 text-xs text-nn-navy-light">Document upload is disabled in demo mode.</p>
+      )}
+
+      {uploadSuccess && (
+        <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2">{uploadSuccess}</p>
+      )}
+      {uploadError && (
+        <p className="mt-2 text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">{uploadError}</p>
+      )}
+
+      {/* Document list */}
+      {docs.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {docs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-start gap-3 rounded-2xl border border-nn-mist bg-nn-pale-sky px-4 py-3"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="#4663ac" strokeWidth="1.6" className="mt-0.5 h-5 w-5 flex-shrink-0">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-nn-navy">{doc.file_name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  {statusBadge(doc.processing_status)}
+                  {doc.page_count != null && (
+                    <span className="text-[10px] text-nn-navy-light">{doc.page_count}p</span>
+                  )}
+                  <span className="text-[10px] text-nn-navy-light">
+                    {new Date(doc.uploaded_at).toLocaleDateString('en-US', {
+                      month: 'short', day: 'numeric', year: 'numeric',
+                    })}
+                  </span>
+                </div>
+                {doc.error_message && (
+                  <p className="mt-1 text-[10px] text-red-500 leading-snug">{doc.error_message}</p>
+                )}
+              </div>
+              <button
+                onClick={() => handleDelete(doc.id)}
+                disabled={deletingId === doc.id}
+                className="ml-1 flex-shrink-0 rounded-full p-1 text-nn-navy-light hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40"
+                aria-label="Remove document"
+              >
+                {deletingId === doc.id ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border border-nn-navy-light border-t-transparent" />
+                ) : (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                    <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!isDemoMode && docs.length === 0 && (
+        <p className="mt-3 text-xs text-nn-navy-light">No documents uploaded yet.</p>
+      )}
+
+      <p className="mt-4 text-[10px] text-nn-navy-light leading-relaxed">
+        NatalNanny uses uploaded documents to support wellness summaries and care-team questions.
+        It does not replace medical advice.
+      </p>
     </div>
   )
 }

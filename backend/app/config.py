@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     supabase_checkup_table: str = "checkup_sessions"
+    supabase_documents_table: str = "health_documents"
+    supabase_health_docs_bucket: str = "health-documents"
     # SQLAlchemy / Alembic — Postgres connection URI (Supabase or local CLI)
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
