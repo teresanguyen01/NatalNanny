@@ -97,6 +97,25 @@ def _touch_thread(db: Session, thread: MessageThread) -> None:
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 
+def _format_contact_name(profile: UserProfile) -> str:
+    """Format a user's display name from their profile.
+
+    Returns "FirstName LastName" if available, otherwise just first or last name,
+    or a role-based fallback if no names are set.
+    """
+    name_parts = [
+        profile.first_name.strip() if profile.first_name else None,
+        profile.last_name.strip() if profile.last_name else None,
+    ]
+    name_parts = [part for part in name_parts if part]  # filter out None/empty
+
+    if name_parts:
+        return ' '.join(name_parts)
+
+    # Fallback to role-based display
+    return "Patient" if profile.role == UserRole.patient else "Doctor"
+
+
 @router.get("/messaging/contacts", response_model=list[ContactRead])
 def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
     """Return messaging contacts based on user role.
@@ -121,7 +140,7 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
                 contacts.append(ContactRead(
                     id=str(p.id),
                     role=p.role,
-                    display_name=f"Patient {str(p.id)[:8]}",
+                    display_name=_format_contact_name(p),
                     email=None,
                 ))
     elif profile and profile.role == UserRole.patient:
@@ -139,7 +158,7 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
                 contacts.append(ContactRead(
                     id=str(d.id),
                     role=d.role,
-                    display_name=f"Doctor {str(d.id)[:8]}",
+                    display_name=_format_contact_name(d),
                     email=None,
                 ))
 
