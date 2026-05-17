@@ -157,6 +157,30 @@ export interface UserSearchResult {
   role: 'patient' | 'doctor'
 }
 
+export interface BrowniePointEntry {
+  date: string  // ISO date
+  points: number
+}
+
+export interface CheckinDateData {
+  date: string  // ISO date
+  streak: number
+}
+
+export interface LastCheckin {
+  date: string  // ISO date
+  stats: Record<string, unknown> | null
+}
+
+export interface DashboardSummary {
+  brownie_points: BrowniePointEntry[]
+  streak: number
+  longest_streak: number
+  mascot_health: number
+  last_checkin: LastCheckin | null
+  checkin_dates: CheckinDateData[]
+}
+
 // ── API Functions ────────────────────────────────────────────────────────────
 
 export function getProfile(): Promise<UserProfile> {
@@ -347,6 +371,11 @@ export const api = {
 
     voiceHistory: (limit = 30) =>
       fetchApi<CheckupResult[]>(`/checkup/voice-history?limit=${limit}`).catch(() => [] as CheckupResult[]),
+  },
+
+  dashboard: {
+    summary: () =>
+      fetchApi<DashboardSummary>('/dashboard/summary'),
   },
 }
 

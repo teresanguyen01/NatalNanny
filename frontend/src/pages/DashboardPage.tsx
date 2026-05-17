@@ -24,6 +24,7 @@ export default function DashboardPage() {
     todayCheckupComplete, streakCount, longestStreak, mascotHealth,
     completedDates, vitals, checkupResult, resultsByDate,
     setCheckupResult, addResultForDate,
+    setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates,
   } = useAppContext()
 
   useEffect(() => {
@@ -34,7 +35,18 @@ export default function DashboardPage() {
     api.checkup.history(60).then(history => {
       history.forEach(r => addResultForDate(r.created_at.substring(0, 10), r))
     }).catch(() => {})
-  }, [setCheckupResult, addResultForDate])
+
+    // Fetch dashboard summary (health, streak, completed dates)
+    api.dashboard.summary().then(summary => {
+      setStreakCount(summary.streak)
+      setLongestStreak(summary.longest_streak)
+      setMascotHealth(summary.mascot_health)
+      setCompletedDates(summary.checkin_dates)
+    }).catch(err => {
+      console.warn('Failed to load dashboard summary:', err)
+      // Fallback to initial values already set in AppContext
+    })
+  }, [setCheckupResult, addResultForDate, setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates])
 
 
   // Derive real values from latest checkup when available, fall back to mock vitals
