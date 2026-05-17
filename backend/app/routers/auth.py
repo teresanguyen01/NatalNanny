@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserProfile
+from app.schemas.user import SignupRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,7 +47,7 @@ def _create_token(user_id: str, email: str, secret: str) -> str:
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def signup(
-    body: AuthRequest,
+    body: SignupRequest,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> AuthResponse:
@@ -59,12 +60,24 @@ def signup(
             detail="An account with this email already exists.",
         )
 
+    user_id = uuid.uuid4()
     user = User(
-        id=uuid.uuid4(),
+        id=user_id,
         email=body.email,
         password_hash=_hash_password(body.password),
     )
     db.add(user)
+
+    # Create profile immediately with signup data
+    profile = UserProfile(
+        id=user_id,
+        first_name=body.first_name.strip(),
+        last_name=body.last_name.strip(),
+        phone_number=body.phone_number.strip(),
+        mascot_health=50,
+        role=None,  # Set later in RoleSelectionPage
+    )
+    db.add(profile)
     db.commit()
     db.refresh(user)
 
