@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Enum, Integer, String, func
+from sqlalchemy import Boolean, Date, DateTime, Enum, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -47,6 +47,20 @@ class UserProfile(Base):
     phone_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
     longest_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_checkin_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    timezone: Mapped[str] = mapped_column(
+        String(50),
+        default="America/Los_Angeles",  # PST/PDT default
+        nullable=False
+    )
+    sms_reminders_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,  # Opt-out by default
+        nullable=False
+    )
+    last_reminder_sent_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True
+    )
     last_health_update: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
