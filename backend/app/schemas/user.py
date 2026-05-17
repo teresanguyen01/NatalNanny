@@ -19,12 +19,15 @@ class SignupRequest(BaseModel):
 class UserProfileRead(BaseModel):
     id: UUID
     role: UserRole | None
+    is_admin: bool
     mascot_health: int
     first_name: str | None = None
     last_name: str | None = None
     phone_number: str | None = None
+    email: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
+    email_reminders_enabled: bool = True
     created_at: datetime
     updated_at: datetime
 

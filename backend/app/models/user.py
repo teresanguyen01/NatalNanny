@@ -53,12 +53,17 @@ class UserProfile(Base):
         default="America/Los_Angeles",  # PST/PDT default
         nullable=False
     )
-    sms_reminders_enabled: Mapped[bool] = mapped_column(
+    email: Mapped[str | None] = mapped_column(
+        String(320),
+        nullable=True,
+        comment="Denormalized from Supabase auth for performance"
+    )
+    email_reminders_enabled: Mapped[bool] = mapped_column(
         Boolean,
         default=True,  # Opt-out by default
         nullable=False
     )
-    last_reminder_sent_date: Mapped[date | None] = mapped_column(
+    last_email_sent_date: Mapped[date | None] = mapped_column(
         Date,
         nullable=True
     )

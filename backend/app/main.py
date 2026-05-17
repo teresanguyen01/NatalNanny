@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 
 logger = logging.getLogger(__name__)
-from .routers import admin, auth, checkup, dashboard, doctor_patients, health, me, users
+from .routers import admin, auth, checkup, dashboard, doctor_patients, health, me, users, settings
 from .routers.messaging import router as messaging_router
 from .routers.messaging import ws_router as messaging_ws_router
 from .routers import rppg
@@ -25,18 +25,18 @@ scheduler: AsyncIOScheduler = None
 
 
 def start_reminder_scheduler():
-    """Initialize and start APScheduler for SMS reminders."""
+    """Initialize and start APScheduler for email reminders."""
     global scheduler
 
     from app.db.session import SessionLocal
-    from app.services.twilio_service import TwilioService
+    from app.services.email_service import EmailService
     from app.services.reminder_service import ReminderService
 
     settings = get_settings()
 
-    # Only start if Twilio configured
-    if not settings.twilio_account_sid or not settings.twilio_auth_token:
-        logger.warning("Twilio not configured - reminder scheduler disabled")
+    # Only start if Resend configured
+    if not settings.resend_api_key:
+        logger.warning("Resend not configured - reminder scheduler disabled")
         return
 
     scheduler = AsyncIOScheduler()
@@ -45,8 +45,8 @@ def start_reminder_scheduler():
         """Execute reminder check with DB session."""
         db = SessionLocal()
         try:
-            twilio = TwilioService(settings)
-            reminder_service = ReminderService(db, settings, twilio)
+            email_service = EmailService(settings)
+            reminder_service = ReminderService(db, settings, email_service)
             summary = reminder_service.check_and_send_reminders()
             logger.info(f"Reminder check: {summary}")
         except Exception as e:
@@ -58,12 +58,12 @@ def start_reminder_scheduler():
         run_reminder_check,
         trigger=IntervalTrigger(minutes=15),
         id="check_daily_reminders",
-        name="Check and send daily check-in reminders",
+        name="Check and send daily check-in email reminders",
         max_instances=1,  # Prevent overlapping runs
     )
 
     scheduler.start()
-    logger.info("Reminder scheduler started - checking every 15 minutes")
+    logger.info("Email reminder scheduler started - checking every 15 minutes")
 
 
 def stop_reminder_scheduler():
@@ -106,6 +106,7 @@ app.include_router(dashboard.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(checkup.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
 app.include_router(rppg.router, prefix="/api")
 app.include_router(voice_checkup.router, prefix="/api")
 app.include_router(tts.router, prefix="/api")

@@ -39,10 +39,10 @@ class Settings(BaseSettings):
     )
     # Comma-separated list of allowed CORS origins
     cors_origins: str = "http://localhost:5173"
-    # Twilio — SMS reminders for daily check-ins
-    twilio_account_sid: str = ""
-    twilio_auth_token: str = ""
-    twilio_phone_number: str = ""  # E.164 format: +14155551234
+    # Resend — Email reminders for daily check-ins
+    resend_api_key: str = ""
+    resend_from_email: str = "NatalNanny <reminders@natalnanny.app>"
+    app_dashboard_url: str = "http://localhost:5173/dashboard"
 
     # ── Experimental vitals feature flags ─────────────────────────────────────
     # Respiratory rate estimate from BVP low-frequency modulation (on by default)

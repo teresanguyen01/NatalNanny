@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db.session import get_db
 from app.dependencies import CurrentUser, get_admin_user
 from app.models.admin import ActionStatus, ActionType, AdminAuditLog, PendingAction
@@ -24,6 +25,7 @@ from app.schemas.admin import (
     RecentSession,
     ScheduleActionRequest,
 )
+from app.services.email_service import EmailService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -501,3 +503,60 @@ def get_audit_logs(
         )
         for log in logs
     ]
+
+
+# ── SMS Reminder Endpoints ────────────────────────────────────────────────────
+
+
+@router.post("/users/{user_id}/send-reminder", response_model=dict)
+def send_email_reminder(user_id: uuid.UUID, admin: Auth, db: DB) -> dict:
+    """Manually send an email reminder to a specific user."""
+    profile = db.get(UserProfile, user_id)
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Check if user has an email
+    if not profile.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User does not have an email address set",
+        )
+
+    # Initialize email service
+    settings = get_settings()
+    email_service = EmailService(settings)
+
+    if not email_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Email service is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL in environment variables.",
+        )
+
+    # Send email
+    success, error_msg = email_service.send_reminder_email(
+        to_email=profile.email,
+        user_first_name=profile.first_name,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send email: {error_msg}",
+        )
+
+    # Log audit
+    _log_audit(
+        db,
+        admin.id,
+        "send_email_reminder",
+        str(user_id),
+        None,
+        {"email": EmailService._mask_email(profile.email)},  # Masked email for privacy
+    )
+    db.commit()
+
+    return {
+        "message": "Email reminder sent successfully",
+        "recipient": f"{profile.first_name or 'User'} {profile.last_name or ''}".strip(),
+        "email": EmailService._mask_email(profile.email),
+    }

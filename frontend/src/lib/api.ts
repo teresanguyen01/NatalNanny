@@ -603,6 +603,12 @@ export const admin = {
     })
   },
 
+  sendSmsReminder: (userId: string): Promise<{ message: string; recipient: string; phone: string }> => {
+    return fetchApi(`/admin/users/${userId}/send-reminder`, {
+      method: 'POST',
+    })
+  },
+
   scheduleAction: (payload: {
     user_id: string
     action_type: 'reminder' | 'notification' | 'mascot_adjustment' | 'streak_adjustment' | 'brownie_adjustment'
@@ -647,6 +653,35 @@ export const admin = {
     if (params?.offset) searchParams.append('offset', params.offset.toString())
     return fetchApi(`/admin/audit-logs${searchParams.toString() ? `?${searchParams}` : ''}`)
   },
+}
+
+// Settings API
+export interface NotificationPreferences {
+  email_reminders_enabled: boolean
+}
+
+export function getNotificationPreferences(): Promise<NotificationPreferences> {
+  return fetchApi('/settings/notifications')
+}
+
+export function updateNotificationPreferences(
+  preferences: Partial<NotificationPreferences>
+): Promise<NotificationPreferences> {
+  return fetchApi('/settings/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify(preferences),
+  })
+}
+
+export function getTimezone(): Promise<{ timezone: string }> {
+  return fetchApi('/settings/timezone')
+}
+
+export function updateTimezone(timezone: string): Promise<{ timezone: string }> {
+  return fetchApi('/settings/timezone', {
+    method: 'PATCH',
+    body: JSON.stringify({ timezone }),
+  })
 }
 
 export { getToken }

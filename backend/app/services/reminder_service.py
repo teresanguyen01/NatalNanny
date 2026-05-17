@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models.user import UserProfile, UserRole
-from app.services.twilio_service import TwilioService
+from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +25,16 @@ class ReminderService:
 
     Features:
     - Timezone-aware time checking (user's local time)
-    - Duplicate prevention via last_reminder_sent_date
-    - Eligibility filtering (patients with phone + SMS enabled)
-    - Atomic updates (commit only after successful SMS)
+    - Duplicate prevention via last_email_sent_date
+    - Eligibility filtering (patients with email + reminders enabled)
+    - Atomic updates (commit only after successful email)
     """
 
     def __init__(
         self,
         db: Session,
         settings: Settings,
-        twilio_service: TwilioService
+        email_service: EmailService
     ):
         """
         Initialize reminder service.
@@ -42,11 +42,11 @@ class ReminderService:
         Args:
             db: SQLAlchemy database session
             settings: Application settings
-            twilio_service: Twilio service for sending SMS
+            email_service: Email service for sending reminders
         """
         self.db = db
         self.settings = settings
-        self.twilio = twilio_service
+        self.email = email_service
 
     def check_and_send_reminders(self) -> dict:
         """
@@ -59,11 +59,11 @@ class ReminderService:
         """
         logger.info("Starting reminder check cycle")
 
-        if not self.twilio.is_configured():
-            logger.warning("Twilio not configured - skipping reminder check")
+        if not self.email.is_configured():
+            logger.warning("Email service not configured - skipping reminder check")
             return {"sent": 0, "skipped": 0, "failed": 0}
 
-        # Query eligible users (patients with phone + SMS enabled)
+        # Query eligible users (patients with email + reminders enabled)
         eligible_users = self._get_eligible_users()
         logger.info(f"Found {len(eligible_users)} eligible users for reminder check")
 
@@ -98,8 +98,8 @@ class ReminderService:
 
         Eligibility criteria:
         1. User is a patient (not doctor)
-        2. User has phone number
-        3. SMS reminders enabled
+        2. User has email address
+        3. Email reminders enabled
 
         Returns:
             List of UserProfile objects
@@ -107,8 +107,8 @@ class ReminderService:
         stmt = (
             select(UserProfile)
             .where(UserProfile.role == UserRole.patient)
-            .where(UserProfile.phone_number.isnot(None))
-            .where(UserProfile.sms_reminders_enabled == True)  # noqa: E712
+            .where(UserProfile.email.isnot(None))
+            .where(UserProfile.email_reminders_enabled == True)  # noqa: E712
         )
 
         result = self.db.execute(stmt)
@@ -130,7 +130,7 @@ class ReminderService:
         user_id_short = str(profile.id)[:8]
 
         # Skip if reminder already sent today
-        if profile.last_reminder_sent_date == today:
+        if profile.last_email_sent_date == today:
             logger.debug(f"User {user_id_short}... - reminder already sent today")
             return "skipped"
 
@@ -148,14 +148,14 @@ class ReminderService:
             return "skipped"
 
         # All checks passed - send reminder
-        success, error_msg = self.twilio.send_reminder_sms(
-            to_phone=profile.phone_number,
+        success, error_msg = self.email.send_reminder_email(
+            to_email=profile.email,
             user_first_name=profile.first_name
         )
 
         if success:
-            # Update last_reminder_sent_date and commit
-            profile.last_reminder_sent_date = today
+            # Update last_email_sent_date and commit
+            profile.last_email_sent_date = today
             self.db.commit()
             logger.info(f"User {user_id_short}... - reminder sent successfully")
             return "sent"

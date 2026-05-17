@@ -14,9 +14,12 @@ import {
   listHealthDocuments,
   uploadHealthDocument,
   deleteHealthDocument,
+  getNotificationPreferences,
+  updateNotificationPreferences,
   type DoctorPatientLink,
   type DoctorPatientLinkWithStatus,
   type HealthDocument,
+  type NotificationPreferences,
 } from '../lib/api'
 
 export default function SettingsPage() {
@@ -98,37 +101,7 @@ export default function SettingsPage() {
           )}
 
           {/* Preferences tab */}
-          {activeTab === 'preferences' && (
-            <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
-            <div className="space-y-3">
-              {[
-                { label: 'Daily checkup reminder', checked: true },
-                { label: 'Streak milestone alerts', checked: true },
-                { label: 'Doctor message notifications', checked: true },
-                { label: 'AI wellness summaries', checked: false },
-              ].map(({ label, checked }) => (
-                <div key={label} className="flex items-center justify-between py-2 border-b border-nn-mist/60 last:border-0">
-                  <span className="text-sm text-nn-navy">{label}</span>
-                  <button
-                    className={[
-                      'relative h-6 w-11 rounded-full transition-colors',
-                      checked ? 'bg-nn-deep-blue' : 'bg-nn-mist',
-                    ].join(' ')}
-                    aria-label={`Toggle ${label}`}
-                  >
-                    <span
-                      className={[
-                        'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                        checked ? 'translate-x-6' : 'translate-x-1',
-                      ].join(' ')}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-          )}
+          {activeTab === 'preferences' && <NotificationPreferencesCard />}
 
           {/* Safety notice - always visible */}
           <div className="fade-up fade-up-6 rounded-3xl border border-amber-200 bg-amber-50 p-6">
@@ -165,10 +138,11 @@ export default function SettingsPage() {
 }
 
 function ProfileCard() {
-  const { displayName, role, isDemoMode, firstName, lastName, setProfile } = useAuth()
+  const { displayName, role, isDemoMode, firstName, lastName, phoneNumber, setProfile } = useAuth()
   const [editing, setEditing] = useState(false)
   const [firstInput, setFirstInput] = useState(firstName ?? '')
   const [lastInput, setLastInput] = useState(lastName ?? '')
+  const [phoneInput, setPhoneInput] = useState(phoneNumber ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -177,8 +151,9 @@ function ProfileCard() {
     if (!editing) {
       setFirstInput(firstName ?? '')
       setLastInput(lastName ?? '')
+      setPhoneInput(phoneNumber ?? '')
     }
-  }, [firstName, lastName, editing])
+  }, [firstName, lastName, phoneNumber, editing])
 
   async function handleSave() {
     if (isDemoMode) {
@@ -191,6 +166,7 @@ function ProfileCard() {
       const updated = await updateProfile({
         first_name: firstInput.trim() || undefined,
         last_name: lastInput.trim() || undefined,
+        phone_number: phoneInput.trim() || undefined,
       })
       setProfile(updated)
       setEditing(false)
@@ -204,6 +180,7 @@ function ProfileCard() {
   function handleCancel() {
     setFirstInput(firstName ?? '')
     setLastInput(lastName ?? '')
+    setPhoneInput(phoneNumber ?? '')
     setEditing(false)
     setError('')
   }
@@ -244,6 +221,16 @@ function ProfileCard() {
               />
             </div>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-nn-navy-light">Phone Number</label>
+            <input
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="e.g. +1 (555) 000-0000"
+              type="tel"
+              className="w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+            />
+          </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2 pt-1">
             <button
@@ -276,6 +263,7 @@ function ProfileCard() {
             </div>
           </div>
           <SettingRow label="Role" value={role ?? 'Not set'} />
+          <SettingRow label="Phone" value={phoneNumber ?? 'Not set'} />
         </div>
       )}
     </div>
@@ -898,6 +886,130 @@ function HealthDocumentsCard() {
       <p className="mt-4 text-[10px] text-nn-navy-light leading-relaxed">
         NatalNanny uses uploaded documents to support wellness summaries and care-team questions.
         It does not replace medical advice.
+      </p>
+    </div>
+  )
+}
+
+function NotificationPreferencesCard() {
+  const { isDemoMode } = useAuth()
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setPreferences({ email_reminders_enabled: true })
+      setLoading(false)
+      return
+    }
+
+    getNotificationPreferences()
+      .then(setPreferences)
+      .catch((err) => {
+        setError(err.message || 'Failed to load preferences')
+      })
+      .finally(() => setLoading(false))
+  }, [isDemoMode])
+
+  async function toggleEmailReminders() {
+    if (isDemoMode || !preferences) return
+
+    setUpdating(true)
+    setError('')
+    try {
+      const updated = await updateNotificationPreferences({
+        email_reminders_enabled: !preferences.email_reminders_enabled,
+      })
+      setPreferences(updated)
+    } catch (err: any) {
+      setError(err.message || 'Failed to update preferences')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
+        <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
+        <p className="text-sm text-nn-navy-light">Loading...</p>
+      </div>
+    )
+  }
+
+  if (!preferences && !isDemoMode) {
+    return (
+      <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
+        <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
+        <p className="text-sm text-red-600">
+          {error || 'Failed to load preferences'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
+      <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
+      {error && (
+        <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">
+          {error}
+        </p>
+      )}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between py-2 border-b border-nn-mist/60">
+          <div>
+            <span className="text-sm text-nn-navy">Daily checkup reminder (email)</span>
+            <p className="text-xs text-nn-navy-light mt-0.5">
+              Sent at 6:00 PM in your timezone
+            </p>
+          </div>
+          <button
+            onClick={toggleEmailReminders}
+            disabled={updating || isDemoMode}
+            className={[
+              'relative h-6 w-11 rounded-full transition-colors',
+              preferences?.email_reminders_enabled ? 'bg-nn-deep-blue' : 'bg-nn-mist',
+              (updating || isDemoMode) && 'opacity-50 cursor-not-allowed',
+            ].join(' ')}
+            aria-label="Toggle daily email reminders"
+          >
+            <span
+              className={[
+                'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform',
+                preferences?.email_reminders_enabled ? 'translate-x-6' : 'translate-x-1',
+              ].join(' ')}
+            />
+          </button>
+        </div>
+
+        {/* Placeholder toggles for future features */}
+        <div className="flex items-center justify-between py-2 border-b border-nn-mist/60 opacity-50">
+          <span className="text-sm text-nn-navy">Streak milestone alerts</span>
+          <div className="relative h-6 w-11 rounded-full bg-nn-mist cursor-not-allowed">
+            <span className="absolute top-1 h-4 w-4 rounded-full bg-white shadow translate-x-1" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between py-2 border-b border-nn-mist/60 opacity-50">
+          <span className="text-sm text-nn-navy">Doctor message notifications</span>
+          <div className="relative h-6 w-11 rounded-full bg-nn-mist cursor-not-allowed">
+            <span className="absolute top-1 h-4 w-4 rounded-full bg-white shadow translate-x-1" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between py-2 opacity-50">
+          <span className="text-sm text-nn-navy">AI wellness summaries</span>
+          <div className="relative h-6 w-11 rounded-full bg-nn-mist cursor-not-allowed">
+            <span className="absolute top-1 h-4 w-4 rounded-full bg-white shadow translate-x-1" />
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-xs text-nn-navy-light">
+        Additional notification options coming soon.
       </p>
     </div>
   )
