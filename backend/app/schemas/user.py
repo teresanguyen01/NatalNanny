@@ -99,3 +99,25 @@ class ConnectionWithStatus(DoctorPatientRead):
     initiator_id: UUID
 
     model_config = {"from_attributes": True}
+
+
+class DoctorPatientWithNames(BaseModel):
+    """Doctor-patient link enriched with resolved display names."""
+
+    doctor_id: UUID
+    patient_id: UUID
+    created_at: datetime
+    patient_display_name: str
+    doctor_display_name: str
+
+
+class ConnectionWithNames(BaseModel):
+    """Connection request enriched with resolved display names."""
+
+    doctor_id: UUID
+    patient_id: UUID
+    created_at: datetime
+    status: ConnectionStatus
+    initiator_id: UUID
+    patient_display_name: str
+    doctor_display_name: str

@@ -14,7 +14,14 @@ from app.dependencies import CurrentUser, get_current_user
 from app.models.checkin import CheckupSession, SessionStatus
 from app.models.doctor_patient import ConnectionStatus, DoctorPatient
 from app.models.user import HealthRecord, UserProfile, UserRole
-from app.schemas.user import ConnectionRequestCreate, ConnectionWithStatus, DoctorPatientCreate, DoctorPatientRead
+from app.schemas.user import (
+    ConnectionRequestCreate,
+    ConnectionWithNames,
+    ConnectionWithStatus,
+    DoctorPatientCreate,
+    DoctorPatientRead,
+    DoctorPatientWithNames,
+)
 
 router = APIRouter(tags=["doctor-patients"])
 
@@ -28,6 +35,19 @@ class DoctorDashboardSummary(BaseModel):
     patients_with_recent_checkups: int  # Last 7 days
     patients_with_missed_checkups: int  # >3 days
     patients_with_urgent_symptoms: int
+
+
+def _display_name(profile: UserProfile | None) -> str:
+    if profile is None:
+        return "Unknown"
+    if profile.first_name and profile.last_name:
+        return f"{profile.first_name} {profile.last_name}"
+    if profile.first_name:
+        return profile.first_name
+    if profile.last_name:
+        return profile.last_name
+    role_label = "Patient" if profile.role == UserRole.patient else "Doctor"
+    return f"{role_label} {str(profile.id)[:8]}"
 
 
 def _require_role(db: Session, user_id: str, required: UserRole) -> UserProfile:
@@ -115,16 +135,27 @@ def get_doctor_dashboard_summary(user: Auth, db: DB) -> DoctorDashboardSummary:
     )
 
 
-@router.get("/doctor-patients", response_model=list[DoctorPatientRead])
-def list_my_patients(user: Auth, db: DB) -> list[DoctorPatient]:
-    """List accepted patients for the current doctor."""
-    _require_role(db, user.id, UserRole.doctor)
-    return db.execute(
+@router.get("/doctor-patients", response_model=list[DoctorPatientWithNames])
+def list_my_patients(user: Auth, db: DB) -> list[DoctorPatientWithNames]:
+    """List accepted patients for the current doctor, enriched with display names."""
+    doctor_profile = _require_role(db, user.id, UserRole.doctor)
+    links = db.execute(
         select(DoctorPatient).where(
             DoctorPatient.doctor_id == uuid.UUID(user.id),
             DoctorPatient.status == ConnectionStatus.accepted,
         )
     ).scalars().all()
+
+    return [
+        DoctorPatientWithNames(
+            doctor_id=link.doctor_id,
+            patient_id=link.patient_id,
+            created_at=link.created_at,
+            doctor_display_name=_display_name(doctor_profile),
+            patient_display_name=_display_name(db.get(UserProfile, link.patient_id)),
+        )
+        for link in links
+    ]
 
 
 @router.post("/doctor-patients", response_model=DoctorPatientRead, status_code=status.HTTP_201_CREATED)
@@ -177,16 +208,27 @@ def remove_patient(patient_id: uuid.UUID, user: Auth, db: DB) -> None:
     db.commit()
 
 
-@router.get("/my-doctors", response_model=list[DoctorPatientRead])
-def list_my_doctors(user: Auth, db: DB) -> list[DoctorPatient]:
-    """List accepted doctors assigned to the current patient."""
-    _require_role(db, user.id, UserRole.patient)
-    return db.execute(
+@router.get("/my-doctors", response_model=list[DoctorPatientWithNames])
+def list_my_doctors(user: Auth, db: DB) -> list[DoctorPatientWithNames]:
+    """List accepted doctors assigned to the current patient, enriched with display names."""
+    patient_profile = _require_role(db, user.id, UserRole.patient)
+    links = db.execute(
         select(DoctorPatient).where(
             DoctorPatient.patient_id == uuid.UUID(user.id),
             DoctorPatient.status == ConnectionStatus.accepted,
         )
     ).scalars().all()
+
+    return [
+        DoctorPatientWithNames(
+            doctor_id=link.doctor_id,
+            patient_id=link.patient_id,
+            created_at=link.created_at,
+            patient_display_name=_display_name(patient_profile),
+            doctor_display_name=_display_name(db.get(UserProfile, link.doctor_id)),
+        )
+        for link in links
+    ]
 
 
 # ── Connection Request endpoints ──────────────────────────────────────────────
@@ -273,13 +315,27 @@ def send_connection_request(payload: ConnectionRequestCreate, user: Auth, db: DB
     return connection
 
 
-@router.get("/connection-requests/received", response_model=list[ConnectionWithStatus])
-def list_received_connection_requests(user: Auth, db: DB) -> list[DoctorPatient]:
+def _enrich_connections(connections: list[DoctorPatient], db: Session) -> list[ConnectionWithNames]:
+    return [
+        ConnectionWithNames(
+            doctor_id=c.doctor_id,
+            patient_id=c.patient_id,
+            created_at=c.created_at,
+            status=c.status,
+            initiator_id=c.initiator_id,
+            doctor_display_name=_display_name(db.get(UserProfile, c.doctor_id)),
+            patient_display_name=_display_name(db.get(UserProfile, c.patient_id)),
+        )
+        for c in connections
+    ]
+
+
+@router.get("/connection-requests/received", response_model=list[ConnectionWithNames])
+def list_received_connection_requests(user: Auth, db: DB) -> list[ConnectionWithNames]:
     """List pending connection requests where current user is the recipient."""
     current_profile = _get_profile_with_role(db, user.id)
 
     if current_profile.role == UserRole.doctor:
-        # Doctor receives requests from patients
         connections = db.execute(
             select(DoctorPatient).where(
                 DoctorPatient.doctor_id == uuid.UUID(user.id),
@@ -288,7 +344,6 @@ def list_received_connection_requests(user: Auth, db: DB) -> list[DoctorPatient]
             )
         ).scalars().all()
     else:
-        # Patient receives requests from doctors
         connections = db.execute(
             select(DoctorPatient).where(
                 DoctorPatient.patient_id == uuid.UUID(user.id),
@@ -297,16 +352,15 @@ def list_received_connection_requests(user: Auth, db: DB) -> list[DoctorPatient]
             )
         ).scalars().all()
 
-    return connections
+    return _enrich_connections(list(connections), db)
 
 
-@router.get("/connection-requests/sent", response_model=list[ConnectionWithStatus])
-def list_sent_connection_requests(user: Auth, db: DB) -> list[DoctorPatient]:
+@router.get("/connection-requests/sent", response_model=list[ConnectionWithNames])
+def list_sent_connection_requests(user: Auth, db: DB) -> list[ConnectionWithNames]:
     """List pending connection requests sent by current user."""
     current_profile = _get_profile_with_role(db, user.id)
 
     if current_profile.role == UserRole.doctor:
-        # Doctor's sent requests
         connections = db.execute(
             select(DoctorPatient).where(
                 DoctorPatient.doctor_id == uuid.UUID(user.id),
@@ -315,7 +369,6 @@ def list_sent_connection_requests(user: Auth, db: DB) -> list[DoctorPatient]:
             )
         ).scalars().all()
     else:
-        # Patient's sent requests
         connections = db.execute(
             select(DoctorPatient).where(
                 DoctorPatient.patient_id == uuid.UUID(user.id),
@@ -324,7 +377,7 @@ def list_sent_connection_requests(user: Auth, db: DB) -> list[DoctorPatient]:
             )
         ).scalars().all()
 
-    return connections
+    return _enrich_connections(list(connections), db)
 
 
 @router.post("/connection-requests/{connection_id}/accept", response_model=ConnectionWithStatus)

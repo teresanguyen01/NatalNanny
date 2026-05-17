@@ -143,6 +143,8 @@ export interface DoctorPatientLink {
   doctor_id: string
   patient_id: string
   created_at: string
+  patient_display_name: string
+  doctor_display_name: string
 }
 
 export interface DoctorPatientLinkWithStatus extends DoctorPatientLink {

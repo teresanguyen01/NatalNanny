@@ -17,7 +17,7 @@ export default function PatientList({
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredPatients = patients.filter(p => {
-    const displayName = p.patient_profile?.display_name || 'Unknown Patient'
+    const displayName = p.patient_display_name || 'Unknown Patient'
     return displayName.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
@@ -75,8 +75,7 @@ export default function PatientList({
           </p>
         ) : (
           filteredPatients.map(patient => {
-            const profile = patient.patient_profile
-            const displayName = profile?.display_name || 'Unknown Patient'
+            const displayName = patient.patient_display_name || 'Unknown Patient'
             const isSelected = selectedPatientId === patient.patient_id
 
             return (

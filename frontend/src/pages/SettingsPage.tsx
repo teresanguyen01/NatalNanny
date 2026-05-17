@@ -425,7 +425,7 @@ function DoctorPatientsCard() {
               className="flex items-center justify-between rounded-2xl bg-nn-pale-sky px-4 py-3"
             >
               <span className="text-sm font-medium text-nn-navy truncate">
-                {p.patient_id}
+                {p.patient_display_name}
               </span>
               <button
                 onClick={() => handleRemove(p.patient_id)}
@@ -532,7 +532,7 @@ function PatientCareTeamCard() {
                   Dr
                 </div>
                 <span className="text-sm font-medium text-nn-navy truncate">
-                  {d.doctor_id}
+                  {d.doctor_display_name}
                 </span>
               </div>
             ))}
@@ -608,7 +608,7 @@ function ConnectionRequestsCard() {
           </p>
           <div className="space-y-3">
             {receivedRequests.map((req) => {
-              const otherId = role === 'doctor' ? req.patient_id : req.doctor_id
+              const otherName = role === 'doctor' ? req.patient_display_name : req.doctor_display_name
               const connectionId = `${req.doctor_id}:${req.patient_id}`
               const isLoading = loading === connectionId
 
@@ -623,7 +623,7 @@ function ConnectionRequestsCard() {
                         {role === 'doctor' ? 'P' : 'Dr'}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-nn-navy truncate">{otherId}</p>
+                        <p className="text-sm font-medium text-nn-navy truncate">{otherName}</p>
                         <p className="text-xs text-nn-navy-light">
                           Wants to connect with you
                         </p>
@@ -668,7 +668,7 @@ function ConnectionRequestsCard() {
           </p>
           <div className="space-y-2">
             {sentRequests.map((req) => {
-              const otherId = role === 'doctor' ? req.patient_id : req.doctor_id
+              const otherName = role === 'doctor' ? req.patient_display_name : req.doctor_display_name
 
               return (
                 <div
@@ -679,7 +679,7 @@ function ConnectionRequestsCard() {
                     {role === 'doctor' ? 'P' : 'Dr'}
                   </div>
                   <span className="text-sm font-medium text-nn-navy truncate flex-1">
-                    {otherId}
+                    {otherName}
                   </span>
                   <span className="flex-shrink-0 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
                     Pending
