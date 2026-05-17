@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     )
     # Comma-separated list of allowed CORS origins
     cors_origins: str = "http://localhost:5173"
+    # Twilio — SMS reminders for daily check-ins
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_phone_number: str = ""  # E.164 format: +14155551234
 
     @field_validator("database_url", mode="before")
     @classmethod
