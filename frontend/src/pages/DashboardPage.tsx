@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
-import { today, mockStreak } from '../data/mockData'
+import { today } from '../data/mockData'
 import { api } from '../lib/api'
 import happyCappy from '../assets/happy_cappy.PNG'
 import StreakCard from '../components/dashboard/StreakCard'
@@ -21,8 +21,9 @@ function getGreeting() {
 export default function DashboardPage() {
   const { displayName } = useAuth()
   const {
-    todayCheckupComplete, streakCount, completedDates, vitals,
-    checkupResult, resultsByDate, setCheckupResult, addResultForDate,
+    todayCheckupComplete, streakCount, longestStreak, mascotHealth,
+    completedDates, vitals, checkupResult, resultsByDate,
+    setCheckupResult, addResultForDate,
   } = useAppContext()
 
   useEffect(() => {
@@ -35,10 +36,6 @@ export default function DashboardPage() {
     }).catch(() => {})
   }, [setCheckupResult, addResultForDate])
 
-  const daysSinceLastCheckin = Math.floor(
-    (new Date(today).getTime() - new Date(mockStreak.lastCheckupDate).getTime()) /
-    (1000 * 60 * 60 * 24)
-  )
 
   // Derive real values from latest checkup when available, fall back to mock vitals
   const liveHR = checkupResult?.checkup_summary?.estimated_pulse_bpm
@@ -100,7 +97,11 @@ export default function DashboardPage() {
         <div className="space-y-5 lg:col-span-2">
           {/* Streak + CTA row */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <StreakCard streakCount={streakCount} todayComplete={todayCheckupComplete} />
+            <StreakCard
+              streakCount={streakCount}
+              longestStreak={longestStreak}
+              todayComplete={todayCheckupComplete}
+            />
             <DailyCheckupCTA todayCheckupComplete={todayCheckupComplete} />
           </div>
 
@@ -123,7 +124,7 @@ export default function DashboardPage() {
 
         {/* ── Right column (1/3 width on desktop) ── */}
         <div className="space-y-5">
-          <MascotPanel streakCount={streakCount} daysSinceLastCheckin={daysSinceLastCheckin} />
+          <MascotPanel mascotHealth={mascotHealth} />
           <HealthProfileCard />
         </div>
       </div>
