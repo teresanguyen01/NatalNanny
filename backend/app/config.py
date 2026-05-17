@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed CORS origins
     cors_origins: str = "http://localhost:5173"
 
+    # ── Experimental vitals feature flags ─────────────────────────────────────
+    # Respiratory rate estimate from BVP low-frequency modulation (on by default)
+    enable_experimental_rr: bool = True
+    # Uncalibrated BP demo estimate (off by default — requires cuff calibration or explicit opt-in)
+    enable_experimental_uncalibrated_bp: bool = False
+    # SpO2 RGB ratio-of-ratios demo (off by default — not a pulse oximeter)
+    enable_experimental_spo2_demo: bool = False
+    # Pulse timing surrogate between facial ROIs (on by default when multi-ROI available)
+    enable_experimental_pulse_timing: bool = True
+
     @field_validator("database_url", mode="before")
     @classmethod
     def _normalize_database_url(cls, value: str) -> str:

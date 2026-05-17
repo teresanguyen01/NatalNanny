@@ -42,9 +42,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setCheckupResult = useCallback((r: CheckupResult) => {
     setCheckupResultState(r)
-    // Also index by date so the calendar can look it up
-    const date = r.created_at.substring(0, 10)
-    setResultsByDate(prev => ({ ...prev, [date]: r }))
+    const resultDate = r.created_at.substring(0, 10)
+    const localToday = new Date().toLocaleDateString('en-CA')
+    setResultsByDate(prev => ({
+      ...prev,
+      [resultDate]: r,
+      // Also key by local today so UTC-offset edge cases don't break calendar lookup
+      [localToday]: r,
+    }))
   }, [])
 
   const addResultForDate = useCallback((date: string, result: CheckupResult) => {

@@ -71,6 +71,8 @@ function DayResultPopup({
   result: CheckupResult
   onClose: () => void
 }) {
+  const [showMore, setShowMore] = useState(false)
+
   const pulse = result.checkup_summary?.estimated_pulse_bpm
     ?? result.rppg_analysis.consensus.estimated_pulse_bpm
   const quality = result.signal_quality?.overall
@@ -81,13 +83,25 @@ function DayResultPopup({
     ?? result.rppg_analysis.check_in_trend as string
   const retake = result.checkup_summary?.retake_recommended
     ?? result.rppg_analysis.consensus.retake_recommended
+  const hrs = result.heart_rate_statistics
+  const mwi = result.maternal_wellness_interpretation
+  const vc = result.voice_checkin
+  const exp = result.experimental_vitals
+  const confidence = result.checkup_summary?.confidence
+  const duration = result.recording_quality?.recording_duration_seconds
+    ?? result.recording.duration_seconds
 
   return (
     <div className="mt-4 rounded-2xl border border-nn-periwinkle bg-nn-pale-sky p-4 animate-fade-in">
+      {/* Header */}
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-bold text-nn-navy">{formatDisplayDate(date)}</p>
-          <p className="text-[10px] text-nn-navy-light">Session {result.session_id}</p>
+          <p className="text-[10px] text-nn-navy-light">
+            Session {result.session_id}
+            {duration ? ` · ${duration.toFixed(0)}s` : ''}
+            {confidence ? ` · ${confidence} confidence` : ''}
+          </p>
         </div>
         <button
           onClick={onClose}
@@ -100,24 +114,26 @@ function DayResultPopup({
         </button>
       </div>
 
+      {/* Core 4 stats */}
       <div className="grid grid-cols-2 gap-2">
-        {/* Estimated pulse */}
         <div className="rounded-xl bg-white px-3 py-2.5">
           <p className="text-[10px] text-nn-navy-light font-medium">Estimated Pulse</p>
           <p className="text-base font-bold text-nn-deep-blue">
             {pulse != null ? `${pulse.toFixed(1)} bpm` : '—'}
           </p>
-          <p className="text-[9px] text-nn-navy-light">Camera-based signal</p>
+          {hrs && (
+            <p className="text-[9px] text-nn-navy-light">
+              {hrs.min_window_bpm?.toFixed(0)}–{hrs.max_window_bpm?.toFixed(0)} bpm range
+            </p>
+          )}
         </div>
 
-        {/* Signal quality */}
         <div className="rounded-xl bg-white px-3 py-2.5">
           <p className="text-[10px] text-nn-navy-light font-medium">Signal Quality</p>
           <p className={`text-base font-bold capitalize ${qualityColor(quality)}`}>{quality}</p>
           <p className="text-[9px] text-nn-navy-light">rPPG estimate</p>
         </div>
 
-        {/* Wellness score */}
         <div className="rounded-xl bg-white px-3 py-2.5">
           <p className="text-[10px] text-nn-navy-light font-medium">Wellness Score</p>
           <p className={`text-base font-bold ${
@@ -128,13 +144,153 @@ function DayResultPopup({
           <p className="text-[9px] text-nn-navy-light">Not a medical score</p>
         </div>
 
-        {/* HR trend */}
         <div className="rounded-xl bg-white px-3 py-2.5">
           <p className="text-[10px] text-nn-navy-light font-medium">HR Trend</p>
           <p className="text-base font-bold text-nn-navy">{trendLabel(trend)}</p>
-          <p className="text-[9px] text-nn-navy-light">During check-in</p>
+          {hrs && hrs.std_window_bpm != null && (
+            <p className="text-[9px] text-nn-navy-light">±{hrs.std_window_bpm.toFixed(1)} bpm std</p>
+          )}
         </div>
       </div>
+
+      {/* Wellness interpretation message */}
+      {mwi?.message && (
+        <div className="mt-2 rounded-xl bg-white px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-nn-navy mb-0.5">What this means</p>
+          <p className="text-[10px] text-nn-navy-light leading-snug">{mwi.message}</p>
+          {mwi.suggested_next_step && (
+            <p className="text-[10px] text-nn-deep-blue font-medium mt-1">→ {mwi.suggested_next_step}</p>
+          )}
+        </div>
+      )}
+
+      {/* Voice Q&A summary */}
+      {vc?.care_team_summary && (
+        <div className="mt-2 rounded-xl bg-white px-3 py-2.5">
+          <p className="text-[10px] font-semibold text-nn-navy mb-0.5">Voice Check-In Notes</p>
+          <p className="text-[10px] text-nn-navy-light leading-snug">{vc.care_team_summary}</p>
+        </div>
+      )}
+
+      {/* Expandable: per-method HR + experimental vitals */}
+      <button
+        onClick={() => setShowMore(s => !s)}
+        className="mt-2 w-full flex items-center justify-between rounded-xl border border-nn-mist bg-white px-3 py-2 text-[10px] font-semibold text-nn-navy hover:bg-nn-pale-sky transition-colors"
+      >
+        {showMore ? 'Hide details' : 'Show more stats'}
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"
+          className={`h-3 w-3 transition-transform ${showMore ? 'rotate-180' : ''}`}>
+          <path d="M2 4l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {showMore && (
+        <div className="mt-2 space-y-2">
+          {/* Per-method HR */}
+          {hrs?.heart_rate_by_method && (
+            <div className="rounded-xl bg-white px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-nn-navy mb-1.5">Per-Method HR</p>
+              <div className="grid grid-cols-3 gap-1.5 text-center">
+                {(['POS', 'CHROM', 'GREEN'] as const).map(m => (
+                  <div key={m} className="rounded-lg bg-nn-pale-sky px-1 py-1.5">
+                    <p className="text-[9px] text-nn-navy-light">{m}</p>
+                    <p className="text-xs font-bold text-nn-navy">
+                      {hrs.heart_rate_by_method[m] != null
+                        ? `${hrs.heart_rate_by_method[m]!.toFixed(1)}`
+                        : '—'}
+                    </p>
+                    <p className="text-[8px] text-nn-navy-light">bpm</p>
+                  </div>
+                ))}
+              </div>
+              {result.method_agreement?.agreement_quality && (
+                <p className="mt-1.5 text-[9px] text-nn-navy-light">
+                  Agreement: <span className={`font-semibold ${qualityColor(result.method_agreement.agreement_quality)}`}>
+                    {result.method_agreement.agreement_quality}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* HR window values */}
+          {hrs?.window_values_bpm && hrs.window_values_bpm.length > 0 && (
+            <div className="rounded-xl bg-white px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-nn-navy mb-1">
+                Window HR ({hrs.window_size_seconds}s windows)
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {hrs.window_values_bpm.map((v, i) => (
+                  <span key={i} className="rounded-full bg-nn-pale-sky px-2 py-0.5 text-[9px] font-medium text-nn-navy">
+                    {v.toFixed(1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Experimental vitals */}
+          {exp && (
+            <div className="rounded-xl bg-white px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-nn-navy mb-1.5">
+                Experimental Vitals
+                <span className="ml-1 text-[8px] font-normal text-nn-navy-light">(not diagnostic)</span>
+              </p>
+              <div className="space-y-1">
+                {exp.respiratory_rate.value_breaths_per_min != null && (
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-nn-navy-light">Resp. rate</span>
+                    <span className="font-semibold text-nn-navy">
+                      ~{exp.respiratory_rate.value_breaths_per_min.toFixed(1)} br/min
+                    </span>
+                  </div>
+                )}
+                {exp.blood_pressure.systolic_mmHg != null && (
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-nn-navy-light">BP surrogate</span>
+                    <span className="font-semibold text-nn-navy">
+                      ~{exp.blood_pressure.systolic_mmHg}/{exp.blood_pressure.diastolic_mmHg} mmHg
+                    </span>
+                  </div>
+                )}
+                {exp.spo2.value_percent != null && (
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-nn-navy-light">SpO2 demo</span>
+                    <span className="font-semibold text-nn-navy">
+                      ~{exp.spo2.value_percent.toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+                {exp.pulse_wave_velocity.value_m_per_s != null && (
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-nn-navy-light">PWV surrogate</span>
+                    <span className="font-semibold text-nn-navy">
+                      {exp.pulse_wave_velocity.value_m_per_s.toFixed(2)} m/s
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Voice Q&A full transcript */}
+          {vc?.questions_asked && vc.questions_asked.length > 0 && (
+            <div className="rounded-xl bg-white px-3 py-2.5">
+              <p className="text-[10px] font-semibold text-nn-navy mb-1.5">Voice Q&amp;A</p>
+              <div className="space-y-1.5">
+                {vc.questions_asked.map((q, i) => (
+                  <div key={q.id ?? i}>
+                    <p className="text-[9px] font-semibold text-nn-navy-light">Q{i + 1}: {q.question}</p>
+                    <p className="text-[9px] text-nn-navy italic leading-snug">
+                      "{q.cleaned_answer || q.raw_transcript}"
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {retake && (
         <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-700">
@@ -156,9 +312,10 @@ export default function CalendarCheckupCard({
 }: CalendarCheckupCardProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  const todayDate = new Date(today)
-  const year = todayDate.getFullYear()
-  const month = todayDate.getMonth()
+  // Parse YYYY-MM-DD as local date (not UTC midnight, which shifts by timezone)
+  const [yearN, monthN] = today.split('-').map(Number)
+  const year = yearN
+  const month = monthN - 1  // convert to 0-indexed
   const days = buildCalendarDays(year, month)
 
   // Convert to map for O(1) lookup

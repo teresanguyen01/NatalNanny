@@ -20,7 +20,7 @@ import {
 } from '../lib/api'
 
 export default function SettingsPage() {
-  const { displayName, signOut, role, isDemoMode } = useAuth()
+  const { displayName, signOut, role, isDemoMode, dueDate, gestationalWeek, setDueDate } = useAuth()
   const [activeTab, setActiveTab] = useState<'profile' | 'care-team' | 'health' | 'preferences'>('profile')
 
   return (
@@ -80,21 +80,16 @@ export default function SettingsPage() {
               <div className="fade-up fade-up-3 rounded-3xl bg-white p-6 shadow-sm">
                 <h2 className="mb-4 font-semibold text-nn-navy">Health Context</h2>
                 <div className="space-y-3">
-                  <SettingRow label="Gestational Week" value={`Week ${mockUser.gestationalWeek} of 40`} />
-                  <SettingRow
-                    label="Due Date"
-                    value={new Date(mockUser.dueDate).toLocaleDateString('en-US', {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  />
-                  <SettingRow label="Care Team" value={mockUser.careTeam} />
-                  <SettingRow
-                    label="Risk Factors"
-                    value={mockUser.riskFactors.join(', ')}
-                    valueClass="text-amber-600"
-                  />
+                  <SettingRow label="Gestational Week" value={`Week ${gestationalWeek} of 40`} />
+                  <div className="flex items-center justify-between border-b border-nn-mist/60 pb-3">
+                    <span className="text-sm text-nn-navy-light">Due Date</span>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => e.target.value && setDueDate(e.target.value)}
+                      className="rounded-xl border border-nn-mist bg-nn-pale-sky px-3 py-1.5 text-sm text-nn-navy outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+                    />
+                  </div>
                 </div>
               </div>
               {/* Emergency contact */}

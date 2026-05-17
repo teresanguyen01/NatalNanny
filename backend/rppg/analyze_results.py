@@ -8,6 +8,8 @@ import numpy as np
 from datetime import datetime
 from typing import Optional
 
+from .experimental_vitals import compute_experimental_vitals
+
 
 # ── Signal-processing helpers ─────────────────────────────────────────────────
 
@@ -189,6 +191,16 @@ def compute_result(
     resolution: str = "640x480",
     face_detected: bool = True,
     multiple_faces: bool = False,
+    # Raw channel traces for experimental vitals (optional)
+    mean_red_trace: Optional[np.ndarray] = None,
+    mean_blue_trace: Optional[np.ndarray] = None,
+    mean_green_trace: Optional[np.ndarray] = None,
+    roi_traces: Optional[dict] = None,
+    # Experimental vitals feature flags
+    enable_experimental_rr: bool = True,
+    enable_experimental_uncalibrated_bp: bool = False,
+    enable_experimental_spo2_demo: bool = False,
+    enable_experimental_pulse_timing: bool = True,
 ) -> dict:
     """Compute the full NatalNanny checkup result from per-method BVP signals."""
 
@@ -369,6 +381,38 @@ def compute_result(
     )
     msg, step = _wellness_message(pulse_cat)
 
+    # ── Experimental vitals ───────────────────────────────────────────────────
+    forehead_green = roi_traces.get("forehead_green") if roi_traces else None
+    left_cheek_green = roi_traces.get("left_cheek_green") if roi_traces else None
+
+    exp = compute_experimental_vitals(
+        bvp=best_bvp,
+        fs=fs,
+        duration_seconds=duration_seconds,
+        signal_quality=overall_quality,
+        hr_bpm=consensus_hr,
+        mean_red_trace=mean_red_trace,
+        mean_blue_trace=mean_blue_trace,
+        mean_green_trace=mean_green_trace,
+        forehead_green=forehead_green,
+        cheek_green=left_cheek_green,
+        enable_rr=enable_experimental_rr,
+        enable_uncalibrated_bp=enable_experimental_uncalibrated_bp,
+        enable_spo2_demo=enable_experimental_spo2_demo,
+        enable_pulse_timing=enable_experimental_pulse_timing,
+    )
+    exp_vitals = exp["experimental_vitals"]
+    rr_available = exp_vitals["respiratory_rate"]["status"] == "experimental_estimate"
+    bp_available = "experimental_" in exp_vitals["blood_pressure"]["status"]
+    spo2_available = "experimental_" in exp_vitals["spo2"]["status"]
+    pwv_available = exp_vitals["pulse_wave_velocity"]["status"] == "surrogate_only_not_true_pwv"
+
+    roi_list = ["forehead_green", "left_cheek_green", "right_cheek_green"]
+    available_traces = ["mean_red_trace", "mean_green_trace", "mean_blue_trace",
+                        "bvp_pos", "bvp_chrom", "bvp_green"]
+    if roi_traces:
+        available_traces += [t for t in roi_list if roi_traces.get(t) is not None]
+
     # ── Build result ──────────────────────────────────────────────────────────
     return {
         "session_id": session_id,
@@ -484,12 +528,23 @@ def compute_result(
             "rppg_waveform": best_bvp is not None,
             "signal_quality": True,
             "recording_quality": True,
-            "respiratory_rate": False,
-            "blood_pressure": False,
-            "spo2": False,
-            "pulse_wave_velocity": False,
+            "respiratory_rate": rr_available,
+            "blood_pressure": bp_available,
+            "spo2": spo2_available,
+            "pulse_wave_velocity": pwv_available,
         },
         "medical_notice": "Estimated wellness signal only, not diagnostic.",
+
+        # ── Experimental vitals ────────────────────────────────────────────
+        "experimental_vitals_config": exp["experimental_vitals_config"],
+        "experimental_vitals": exp_vitals,
+        "raw_signal_traces": {
+            "stored_inline": False,
+            "sample_count": frame_count,
+            "local_trace_path": None,
+            "supabase_storage_path": None,
+            "available_traces": available_traces,
+        },
 
         # ── Backward-compat legacy fields ──────────────────────────────────
         "recording": {

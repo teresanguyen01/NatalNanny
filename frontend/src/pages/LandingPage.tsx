@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
 import logo from "../assets/logo.png";
+import heartsCappy from "../assets/hearts.png";
+import measureHeartCappy from "../assets/measure_heart_cappy.png";
+import signalCappy from "../assets/signal_cappy.png";
 
 export default function LandingPage() {
   return (
@@ -42,8 +45,8 @@ export default function LandingPage() {
           </h1>
           <p className="mb-8 text-lg text-nn-navy-light leading-relaxed">
             NatalNanny uses your webcam and remote photoplethysmography to track
-            heart rate and respiratory rate — no wearable required. Stay
-            connected with your care team and notice changes earlier.
+            heart rate and respiratory rate. No wearables required! Stay
+            connected with your care team and notice changes earlier!
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
@@ -70,55 +73,40 @@ export default function LandingPage() {
         {[
           {
             icon: (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#4663ac"
-                strokeWidth="1.6"
-                className="h-7 w-7"
-              >
-                <path d="M12 21S3 15 3 9a5 5 0 0 1 9-3A5 5 0 0 1 21 9c0 6-9 12-9 12Z" />
-              </svg>
+              <img
+                src={heartsCappy}
+                alt="rPPG Vitals"
+                className="h-full w-full object-cover rounded-2xl"
+              />
             ),
             title: "rPPG Vitals Monitoring",
             desc: "Camera-based heart rate and breathing estimation — no patches, no wearables, no hassle.",
           },
           {
             icon: (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#4663ac"
-                strokeWidth="1.6"
-                className="h-7 w-7"
-              >
-                <path
-                  d="M21 13.5C21 18.19 16.97 22 12 22c-1.38 0-2.69-.3-3.85-.84L3 22l1.38-4.65A9.46 9.46 0 0 1 3 13.5C3 8.81 7.03 5 12 5s9 3.81 9 8.5Z"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <img
+                src={measureHeartCappy}
+                alt="Care Team Messaging"
+                className="h-full w-full object-cover rounded-2xl"
+              />
             ),
             title: "Care Team Messaging",
             desc: "Direct messaging with your OB, midwife, or doula — with one-tap checkup summaries.",
           },
           {
             icon: (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#4663ac"
-                strokeWidth="1.6"
-                className="h-7 w-7"
-              >
-                <path d="M12 2a1 1 0 0 1 .894.553l2.5 5.067 5.59.813a1 1 0 0 1 .555 1.705l-4.045 3.943.955 5.566a1 1 0 0 1-1.45 1.054L12 18.347l-4.999 2.354a1 1 0 0 1-1.45-1.054l.955-5.566L2.461 10.138a1 1 0 0 1 .555-1.705l5.59-.813L11.106 2.553A1 1 0 0 1 12 2Z" />
-              </svg>
+              <img
+                src={signalCappy}
+                alt="AI Wellness Companion"
+                className="h-full w-full object-cover rounded-2xl"
+              />
             ),
             title: "AI Wellness Companion",
             desc: "NatalNanny AI summarizes your checkup history and care notes — not a diagnosis, just support.",
           },
         ].map(({ icon, title, desc }) => (
           <div key={title} className="rounded-3xl bg-white p-6 shadow-sm">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-nn-pale-sky">
+            <div className="mb-3 h-12 w-12 overflow-hidden rounded-2xl">
               {icon}
             </div>
             <h3 className="mb-1.5 font-semibold text-nn-navy">{title}</h3>

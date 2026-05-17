@@ -24,6 +24,7 @@ sys.path.insert(0, str(_BACKEND_ROOT))
 from rppg.direct_analyze import analyze_video
 from rppg.analyze_results import compute_result
 from rppg import storage
+from app.config import get_settings
 
 router = APIRouter(tags=["rppg"])
 
@@ -172,6 +173,81 @@ def _make_full_result(
     waveform_strength = "good" if quality_snr >= 0.4 else ("medium" if quality_snr >= 0.2 else "low")
     dom_freq = round(consensus_hr / 60.0, 4)
 
+    # Mock experimental vitals — RR estimated, BP/SpO2 disabled, PWV unavailable
+    mock_rr_bpm = round(15.0 + random.uniform(-2.5, 2.5), 1)
+    mock_rr_conf_score = round(0.32 + random.uniform(-0.08, 0.08), 3)
+    mock_rr_conf = "medium" if mock_rr_conf_score > 0.25 else "low"
+    mock_exp_vitals = {
+        "experimental_vitals_config": {
+            "enable_experimental_rr": True,
+            "enable_experimental_uncalibrated_bp": False,
+            "enable_experimental_spo2_demo": False,
+            "enable_experimental_pulse_timing": True,
+        },
+        "experimental_vitals": {
+            "respiratory_rate": {
+                "status": "experimental_estimate",
+                "value_breaths_per_min": mock_rr_bpm,
+                "method": "low_frequency_rppg_modulation_welch",
+                "confidence": mock_rr_conf,
+                "confidence_score": mock_rr_conf_score,
+                "valid_range_breaths_per_min": [6, 30],
+                "notes": [
+                    "Experimental camera-derived estimate.",
+                    "Not diagnostic.",
+                    "May be affected by motion, lighting, talking, and posture.",
+                    "Estimated wellness signal only, not diagnostic.",
+                ],
+            },
+            "blood_pressure": {
+                "status": "disabled_or_requires_calibration",
+                "systolic_mmHg": None,
+                "diastolic_mmHg": None,
+                "method": "not_available_without_calibration",
+                "confidence": "unavailable",
+                "notes": [
+                    "Blood pressure is not estimated in this session.",
+                    "Camera-only BP estimation requires validated calibration or cuff integration.",
+                    "Use a validated cuff for blood pressure readings.",
+                ],
+            },
+            "spo2": {
+                "status": "disabled_or_requires_calibration",
+                "value_percent": None,
+                "method": "rgb_ratio_of_ratios_requires_calibration",
+                "confidence": "unavailable",
+                "notes": [
+                    "SpO2 is not estimated in this session.",
+                    "SpO2 normally requires validated optical wavelengths and calibration.",
+                    "A standard webcam should not be treated as a pulse oximeter.",
+                ],
+            },
+            "pulse_wave_velocity": {
+                "status": "not_available_single_roi",
+                "value_m_per_s": None,
+                "pulse_arrival_delay_ms": None,
+                "method": "not_available",
+                "confidence": "unavailable",
+                "notes": [
+                    "Pulse timing surrogate requires two ROI signals (e.g. forehead and cheek).",
+                    "True pulse wave velocity requires multiple measurement sites or ECG/PPG timing.",
+                ],
+            },
+            "disclaimer": (
+                "These are experimental camera-derived wellness estimates for "
+                "proof-of-concept only and are not diagnostic."
+            ),
+        },
+        "raw_signal_traces": {
+            "stored_inline": False,
+            "sample_count": frame_count,
+            "local_trace_path": None,
+            "supabase_storage_path": None,
+            "available_traces": ["mean_red_trace", "mean_green_trace", "mean_blue_trace",
+                                 "bvp_pos", "bvp_chrom", "bvp_green"],
+        },
+    }
+
     return {
         "session_id": session_id,
         "created_at": created_at,
@@ -281,12 +357,13 @@ def _make_full_result(
             "rppg_waveform": True,
             "signal_quality": True,
             "recording_quality": True,
-            "respiratory_rate": False,
+            "respiratory_rate": True,   # RR estimated in mock
             "blood_pressure": False,
             "spo2": False,
             "pulse_wave_velocity": False,
         },
         "medical_notice": "Estimated wellness signal only, not diagnostic.",
+        **mock_exp_vitals,
         # Legacy compat
         "recording": {
             "duration_seconds": duration,
@@ -350,6 +427,8 @@ async def upload_and_analyze(
         shutil.copyfileobj(file.file, f)
 
     # Try real rPPG analysis
+    cfg = get_settings()
+
     try:
         raw = analyze_video(str(video_path))
 
@@ -364,13 +443,20 @@ async def upload_and_analyze(
             video_path=str(video_path),
             face_detected=face_detected,
             multiple_faces=multiple_faces,
+            mean_red_trace=raw.get("mean_red_trace"),
+            mean_blue_trace=raw.get("mean_blue_trace"),
+            mean_green_trace=raw.get("mean_green_trace"),
+            roi_traces=raw.get("roi_traces"),
+            enable_experimental_rr=cfg.enable_experimental_rr,
+            enable_experimental_uncalibrated_bp=cfg.enable_experimental_uncalibrated_bp,
+            enable_experimental_spo2_demo=cfg.enable_experimental_spo2_demo,
+            enable_experimental_pulse_timing=cfg.enable_experimental_pulse_timing,
         )
 
         if raw["errors"]:
             result["analysis_warnings"] = raw["errors"]
 
     except Exception as exc:
-        # rPPG-Toolbox dependencies not installed or analysis failed — return demo result
         result = _make_full_result(sid, 85.0 + random.uniform(-10, 10), "medium")
         result["recording"]["video_path"] = str(video_path)
         result["analysis_warnings"] = {
@@ -392,6 +478,7 @@ async def analyze_checkup(req: AnalyzeRequest):
         raise HTTPException(status_code=404, detail=f"Video file not found: {req.video_path}")
 
     session_id = req.session_id or datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    cfg = get_settings()
 
     try:
         raw = analyze_video(str(video_path))
@@ -410,6 +497,14 @@ async def analyze_checkup(req: AnalyzeRequest):
         resolution=req.resolution or "640x480",
         face_detected=req.face_detected if req.face_detected is not None else True,
         multiple_faces=req.multiple_faces or False,
+        mean_red_trace=raw.get("mean_red_trace"),
+        mean_blue_trace=raw.get("mean_blue_trace"),
+        mean_green_trace=raw.get("mean_green_trace"),
+        roi_traces=raw.get("roi_traces"),
+        enable_experimental_rr=cfg.enable_experimental_rr,
+        enable_experimental_uncalibrated_bp=cfg.enable_experimental_uncalibrated_bp,
+        enable_experimental_spo2_demo=cfg.enable_experimental_spo2_demo,
+        enable_experimental_pulse_timing=cfg.enable_experimental_pulse_timing,
     )
 
     if raw["errors"]:

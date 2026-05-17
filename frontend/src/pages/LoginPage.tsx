@@ -1,30 +1,31 @@
-import { type FormEvent, useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { type FormEvent, useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import logo from "../assets/logo.png";
 
 export default function LoginPage() {
-  const { signInWithPassword, session, isDemoMode } = useAuth()
-  const navigate = useNavigate()
+  const { signInWithPassword, session, isDemoMode } = useAuth();
+  const navigate = useNavigate();
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (session || isDemoMode) navigate('/dashboard', { replace: true })
-  }, [session, isDemoMode, navigate])
+    if (session || isDemoMode) navigate("/dashboard", { replace: true });
+  }, [session, isDemoMode, navigate]);
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const { error } = await signInWithPassword(email, password)
-    setLoading(false)
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const { error } = await signInWithPassword(email, password);
+    setLoading(false);
     if (error) {
-      setError(error.message)
+      setError(error.message);
     } else {
-      navigate('/dashboard', { replace: true })
+      navigate("/dashboard", { replace: true });
     }
   }
 
@@ -34,21 +35,24 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-nn-deep-blue shadow-sm">
-              <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5">
-                <path d="M12 21.5S3 15.5 3 9a5 5 0 0 1 9-3A5 5 0 0 1 21 9c0 6.5-9 12.5-9 12.5Z" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-nn-navy">NatalNanny</span>
+            <img src={logo} alt="NatalNanny logo" className="h-10 w-auto" />
+            <span className="text-xl font-bold tracking-tight text-nn-navy">
+              Natal Nanny
+            </span>
           </Link>
-          <p className="text-sm text-nn-navy-light">Sign in to your wellness account</p>
+          <p className="text-sm text-nn-navy-light">
+            Sign in to your wellness account
+          </p>
         </div>
 
         {/* Card */}
         <div className="rounded-3xl bg-white p-8 shadow-sm">
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-nn-navy">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-nn-navy"
+              >
                 Email
               </label>
               <input
@@ -64,7 +68,10 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-nn-navy">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-nn-navy"
+              >
                 Password
               </label>
               <input
@@ -90,18 +97,21 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-xl bg-nn-deep-blue px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-nn-deep-blue-hover disabled:opacity-60"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-nn-navy-light">
-            Don&apos;t have an account?{' '}
-            <Link to="/signup" className="font-medium text-nn-deep-blue hover:underline">
+            Don&apos;t have an account?{" "}
+            <Link
+              to="/signup"
+              className="font-medium text-nn-deep-blue hover:underline"
+            >
               Sign up
             </Link>
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }

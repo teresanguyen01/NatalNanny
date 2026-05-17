@@ -13,7 +13,7 @@ export const mockUser = {
 
 export const mockStreak = {
   count: 7,
-  lastCheckupDate: '2026-05-15',
+  lastCheckupDate: '2026-05-16',
   weeklyGoal: 7,
 }
 
@@ -21,10 +21,11 @@ export const completedDates: string[] = [
   '2026-05-01', '2026-05-02', '2026-05-04', '2026-05-05',
   '2026-05-06', '2026-05-07', '2026-05-08', '2026-05-09',
   '2026-05-10', '2026-05-11', '2026-05-12', '2026-05-13',
-  '2026-05-14', '2026-05-15',
+  '2026-05-14', '2026-05-15', '2026-05-16',
 ]
 
-export const today = '2026-05-16'
+// Always reflects the actual local calendar date
+export const today = new Date().toLocaleDateString('en-CA')
 
 export const mockVitals = {
   heartRate: 91,

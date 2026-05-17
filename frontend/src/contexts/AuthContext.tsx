@@ -15,6 +15,14 @@ interface AuthUser {
   email: string
 }
 
+const DUE_DATE_KEY = 'nn_due_date'
+
+function computeGestationalWeek(dueDate: string): number {
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000
+  const weeksUntilDue = (new Date(dueDate).getTime() - Date.now()) / msPerWeek
+  return Math.max(0, Math.min(40, Math.round(40 - weeksUntilDue)))
+}
+
 interface AuthContextValue {
   session: { token: string; user: AuthUser } | null
   user: AuthUser | null
@@ -28,6 +36,9 @@ interface AuthContextValue {
   phoneNumber: string | null
   emergencyContactName: string | null
   emergencyContactPhone: string | null
+  dueDate: string
+  gestationalWeek: number
+  setDueDate: (date: string) => void
   setRole: (role: UserRole) => void
   setProfile: (profile: UserProfile) => void
   signInWithPassword: (email: string, password: string) => Promise<{ error: { message: string } | null }>
@@ -59,6 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null)
   const [emergencyContactName, setEmergencyContactName] = useState<string | null>(null)
   const [emergencyContactPhone, setEmergencyContactPhone] = useState<string | null>(null)
+  const [dueDate, setDueDateState] = useState<string>(
+    () => localStorage.getItem(DUE_DATE_KEY) ?? mockUser.dueDate
+  )
+
+  const gestationalWeek = computeGestationalWeek(dueDate)
+
+  function setDueDate(date: string) {
+    localStorage.setItem(DUE_DATE_KEY, date)
+    setDueDateState(date)
+  }
 
   function setProfile(profile: UserProfile) {
     setRole(profile.role)
@@ -173,6 +194,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phoneNumber,
         emergencyContactName,
         emergencyContactPhone,
+        dueDate,
+        gestationalWeek,
+        setDueDate,
         setRole,
         setProfile,
         signInWithPassword,

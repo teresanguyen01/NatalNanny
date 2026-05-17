@@ -204,6 +204,81 @@ export interface FutureMetricSpO2 {
   explanation: string
 }
 
+// ── Experimental vitals types ─────────────────────────────────────────────────
+
+export interface ExperimentalVitalsConfig {
+  enable_experimental_rr: boolean
+  enable_experimental_uncalibrated_bp: boolean
+  enable_experimental_spo2_demo: boolean
+  enable_experimental_pulse_timing: boolean
+}
+
+export type ExperimentalStatus =
+  | 'experimental_estimate'
+  | 'experimental_demo_estimate_uncalibrated'
+  | 'experimental_estimate_calibrated_to_user_cuff'
+  | 'surrogate_only_not_true_pwv'
+  | 'disabled_or_requires_calibration'
+  | 'disabled'
+  | 'unavailable'
+  | 'not_available_single_roi'
+  | string
+
+export interface ExperimentalRR {
+  status: ExperimentalStatus
+  value_breaths_per_min: number | null
+  method: string | null
+  confidence: string
+  confidence_score: number | null
+  valid_range_breaths_per_min: [number, number] | null
+  notes: string[]
+}
+
+export interface ExperimentalBP {
+  status: ExperimentalStatus
+  systolic_mmHg: number | null
+  diastolic_mmHg: number | null
+  method: string | null
+  confidence: string
+  calibration_source?: string | null
+  show_warning?: boolean
+  notes: string[]
+}
+
+export interface ExperimentalSpO2 {
+  status: ExperimentalStatus
+  value_percent: number | null
+  method: string | null
+  confidence: string
+  show_warning?: boolean
+  notes: string[]
+}
+
+export interface ExperimentalPWV {
+  status: ExperimentalStatus
+  value_m_per_s: number | null
+  pulse_arrival_delay_ms: number | null
+  method: string | null
+  confidence: string
+  notes: string[]
+}
+
+export interface ExperimentalVitals {
+  respiratory_rate: ExperimentalRR
+  blood_pressure: ExperimentalBP
+  spo2: ExperimentalSpO2
+  pulse_wave_velocity: ExperimentalPWV
+  disclaimer: string
+}
+
+export interface RawSignalTraces {
+  stored_inline: boolean
+  sample_count: number | null
+  local_trace_path: string | null
+  supabase_storage_path: string | null
+  available_traces: string[]
+}
+
 // ── Combined result interface (new schema + legacy compat fields) ──────────────
 export interface CheckupResult {
   session_id: string
@@ -241,6 +316,11 @@ export interface CheckupResult {
     pulse_wave_velocity: boolean
   }
   medical_notice?: string
+
+  // Experimental vitals (added in v2 — present when backend computes estimates)
+  experimental_vitals_config?: ExperimentalVitalsConfig
+  experimental_vitals?: ExperimentalVitals
+  raw_signal_traces?: RawSignalTraces
 
   // Voice check-in overlay (present when session was a voice+rPPG session)
   voice_checkin?: VoiceCheckin

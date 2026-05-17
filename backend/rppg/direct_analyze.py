@@ -49,9 +49,43 @@ def _load_frames(video_path: str, max_frames: int = 1800) -> tuple[np.ndarray, f
     return arr, fps
 
 
+def _extract_rgb_roi_traces(frames: np.ndarray) -> dict:
+    """
+    Extract per-frame mean RGB values and rough spatial ROI green signals.
+    Frames shape: (T, H, W, 3) float32, RGB channel order.
+    ROI splits are spatial approximations (no face detection).
+    """
+    T, H, W, _ = frames.shape
+    # Per-frame global channel means
+    means = frames.mean(axis=(1, 2))  # (T, 3)
+
+    h3 = max(1, H // 3)
+    w2 = max(1, W // 2)
+
+    # Rough forehead = top third of frame, full width
+    forehead_green = frames[:, :h3, :, 1].mean(axis=(1, 2)).astype(np.float64)
+    # Rough left cheek = middle third, left half
+    left_cheek_green = frames[:, h3:2 * h3, :w2, 1].mean(axis=(1, 2)).astype(np.float64)
+    # Rough right cheek = middle third, right half
+    right_cheek_green = frames[:, h3:2 * h3, w2:, 1].mean(axis=(1, 2)).astype(np.float64)
+
+    return {
+        "mean_red_trace": means[:, 0].astype(np.float64),
+        "mean_green_trace": means[:, 1].astype(np.float64),
+        "mean_blue_trace": means[:, 2].astype(np.float64),
+        "roi_traces": {
+            "forehead_green": forehead_green,
+            "left_cheek_green": left_cheek_green,
+            "right_cheek_green": right_cheek_green,
+        },
+    }
+
+
 def analyze_video(video_path: str) -> dict:
     """
     Run POS, CHROM, and GREEN on the given video file.
+    Also extracts per-frame mean RGB traces and rough spatial ROI signals for
+    experimental vital estimation (SpO2, pulse timing surrogate).
 
     Returns:
         {
@@ -62,11 +96,23 @@ def analyze_video(video_path: str) -> dict:
             "frame_count": int,
             "duration_seconds": float,
             "errors": {method: str, ...},
+            # Raw channel traces (for experimental vitals)
+            "mean_red_trace": np.ndarray,      # per-frame mean red intensity
+            "mean_green_trace": np.ndarray,    # per-frame mean green intensity
+            "mean_blue_trace": np.ndarray,     # per-frame mean blue intensity
+            "roi_traces": {
+                "forehead_green": np.ndarray,  # top 1/3 of frame (rough)
+                "left_cheek_green": np.ndarray,
+                "right_cheek_green": np.ndarray,
+            },
         }
     """
     frames, fps = _load_frames(video_path)
     frame_count = len(frames)
     duration = frame_count / fps
+
+    # Extract raw RGB/ROI traces from the loaded frames
+    rgb_traces = _extract_rgb_roi_traces(frames)
 
     results: dict = {
         "pos_bvp": None,
@@ -76,6 +122,7 @@ def analyze_video(video_path: str) -> dict:
         "frame_count": frame_count,
         "duration_seconds": duration,
         "errors": {},
+        **rgb_traces,
     }
 
     try:
