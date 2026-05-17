@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
+from app.models.admin import ActionStatus, ActionType, PendingAction
 from app.models.checkin import CheckupSession, SessionStatus
 from app.models.user import UserProfile
 from app.schemas.dashboard import (
@@ -183,6 +184,75 @@ def _last_checkin(db: Session, user_id: str) -> LastCheckin | None:
     return LastCheckin(date=session.completed_at.date(), stats=session.stats)
 
 
+def _process_pending_actions(db: Session, user_id: str, profile: UserProfile) -> list[dict]:
+    """
+    Process pending actions for a user.
+    Returns list of notifications to display to the user.
+    """
+    notifications = []
+
+    # Fetch pending actions (scheduled_for is now or in the past, or null)
+    now = datetime.now(timezone.utc)
+    actions = db.execute(
+        select(PendingAction)
+        .where(
+            PendingAction.user_id == user_id,
+            PendingAction.status == ActionStatus.pending,
+        )
+        .where(
+            (PendingAction.scheduled_for.is_(None)) | (PendingAction.scheduled_for <= now)
+        )
+    ).scalars().all()
+
+    for action in actions:
+        # Process action based on type
+        if action.action_type == ActionType.mascot_adjustment:
+            delta = action.action_data.get("delta", 0)
+            old_health = profile.mascot_health
+            profile.mascot_health = max(0, min(100, profile.mascot_health + delta))
+            if action.message:
+                notifications.append({
+                    "type": "mascot_adjustment",
+                    "message": action.message,
+                    "old_value": old_health,
+                    "new_value": profile.mascot_health,
+                })
+
+        elif action.action_type == ActionType.brownie_adjustment:
+            delta = action.action_data.get("delta", 0)
+            if action.message:
+                notifications.append({
+                    "type": "brownie_adjustment",
+                    "message": action.message,
+                    "delta": delta,
+                })
+
+        elif action.action_type == ActionType.streak_adjustment:
+            # Streak is computed, not stored, so this is informational
+            if action.message:
+                notifications.append({
+                    "type": "streak_adjustment",
+                    "message": action.message,
+                })
+
+        elif action.action_type in (ActionType.reminder, ActionType.notification):
+            if action.message:
+                notifications.append({
+                    "type": action.action_type.value,
+                    "message": action.message,
+                })
+
+        # Mark action as completed
+        action.status = ActionStatus.completed
+        action.completed_at = now
+
+    if actions:
+        db.commit()
+        db.refresh(profile)
+
+    return notifications
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 
@@ -190,6 +260,9 @@ def _last_checkin(db: Session, user_id: str) -> LastCheckin | None:
 def get_dashboard_summary(user: Auth, db: DB) -> DashboardSummary:
     """Single round-trip for the dashboard initial load."""
     profile = _get_profile(db, user.id)
+
+    # Process pending actions first (may modify profile)
+    pending_notifications = _process_pending_actions(db, user.id, profile)
 
     # Apply lazy health decay
     decayed_health = _apply_health_decay(profile)
@@ -217,6 +290,7 @@ def get_dashboard_summary(user: Auth, db: DB) -> DashboardSummary:
         mascot_health=profile.mascot_health,
         last_checkin=_last_checkin(db, user.id),
         checkin_dates=checkin_data,
+        pending_notifications=pending_notifications,
     )
 
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
 import { today } from '../data/mockData'
@@ -10,6 +10,7 @@ import DailyCheckupCTA from '../components/dashboard/DailyCheckupCTA'
 import MascotPanel from '../components/dashboard/MascotPanel'
 import MetricsSummaryCards from '../components/dashboard/MetricsSummaryCards'
 import HealthProfileCard from '../components/dashboard/HealthProfileCard'
+import NotificationDisplay from '../components/admin/NotificationDisplay'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -26,6 +27,7 @@ export default function DashboardPage() {
     setCheckupResult, addResultForDate,
     setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates,
   } = useAppContext()
+  const [pendingNotifications, setPendingNotifications] = useState<any[]>([])
 
   useEffect(() => {
     // Fetch latest for dashboard metrics display
@@ -36,12 +38,13 @@ export default function DashboardPage() {
       history.forEach(r => addResultForDate(r.created_at.substring(0, 10), r))
     }).catch(() => {})
 
-    // Fetch dashboard summary (health, streak, completed dates)
+    // Fetch dashboard summary (health, streak, completed dates, notifications)
     api.dashboard.summary().then(summary => {
       setStreakCount(summary.streak)
       setLongestStreak(summary.longest_streak)
       setMascotHealth(summary.mascot_health)
       setCompletedDates(summary.checkin_dates)
+      setPendingNotifications(summary.pending_notifications || [])
     }).catch(err => {
       console.warn('Failed to load dashboard summary:', err)
       // Fallback to initial values already set in AppContext
@@ -95,6 +98,13 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* ── Pending Notifications ── */}
+      {pendingNotifications.length > 0 && (
+        <div className="mb-6">
+          <NotificationDisplay notifications={pendingNotifications} />
+        </div>
+      )}
 
       {/* ── Main grid ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

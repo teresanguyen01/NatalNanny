@@ -39,6 +39,7 @@ class UserProfile(Base):
         Enum(UserRole, name="user_role", create_constraint=False),
         nullable=True,
     )
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mascot_health: Mapped[int] = mapped_column(Integer, default=80, nullable=False)
     first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
