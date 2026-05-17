@@ -1,0 +1,173 @@
+{
+  "session_id": "202605170227140",
+  "created_at": "2026-05-17T02:27:26.202320Z",
+  "source": {
+    "pipeline": "rPPG-Toolbox",
+    "mode": "unsupervised_webcam_mvp",
+    "methods_run": [
+      "POS",
+      "CHROM",
+      "GREEN"
+    ],
+    "ground_truth_used": false
+  },
+  "checkup_summary": {
+    "estimated_pulse_bpm": 64.01,
+    "pulse_category": "typical_resting_range",
+    "pulse_label": "Within typical resting range",
+    "confidence": "medium",
+    "retake_recommended": false
+  },
+  "heart_rate_statistics": {
+    "primary_method": "POS",
+    "backup_method": "CHROM",
+    "baseline_method": "GREEN",
+    "consensus_method": "POS_CHROM",
+    "heart_rate_by_method": {
+      "POS": 69.4,
+      "CHROM": 58.62,
+      "GREEN": 47.17
+    },
+    "consensus_heart_rate_bpm": 64.01,
+    "window_size_seconds": 10,
+    "window_values_bpm": [
+      75.5,
+      48.5,
+      64.7,
+      80.9,
+      75.5,
+      59.3
+    ],
+    "mean_window_bpm": 67.4,
+    "min_window_bpm": 48.5,
+    "max_window_bpm": 80.9,
+    "range_window_bpm": 32.4,
+    "std_window_bpm": 11.13,
+    "trend": "decreasing"
+  },
+  "method_agreement": {
+    "pos_chrom_difference_bpm": 10.78,
+    "pos_green_difference_bpm": 22.23,
+    "chrom_green_difference_bpm": 11.45,
+    "green_difference_from_consensus_bpm": 16.84,
+    "outlier_methods": [
+      "GREEN"
+    ],
+    "agreement_quality": "medium"
+  },
+  "rppg_waveform_statistics": {
+    "waveform_available": true,
+    "waveform_sample_count": 1392,
+    "dominant_frequency_hz": 1.1567,
+    "dominant_frequency_bpm": 69.4,
+    "peak_power": 18.739404,
+    "average_band_power": 2.618346,
+    "snr_like_score": 0.2564,
+    "valid_window_count": 6
+  },
+  "signal_quality": {
+    "overall": "good",
+    "method_agreement": "medium",
+    "hr_stability": "medium",
+    "waveform_strength": "medium",
+    "face_detected": true,
+    "multiple_faces_detected": false,
+    "recording_duration_seconds": 60.52,
+    "estimated_fps": 23.0
+  },
+  "recording_quality": {
+    "face_detected": true,
+    "multiple_faces_detected": false,
+    "recording_duration_seconds": 60.52,
+    "frame_count": 1392,
+    "estimated_fps": 23.0,
+    "resolution": "640x480",
+    "retake_recommended": false,
+    "retake_reasons": []
+  },
+  "maternal_wellness_interpretation": {
+    "wellness_score": 85,
+    "score_label": "wellness_checkin_score_not_medical_risk",
+    "message": "Your estimated pulse looked within a typical resting range for this check-in. Keep up your wellness routine and continue sharing trends with your care team.",
+    "suggested_next_step": "Continue your daily check-ins and share your trend history at your next appointment.",
+    "escalation_note": "Seek urgent medical care for chest pain, trouble breathing, fainting, seizure, severe headache, vision changes, heavy bleeding, or reduced fetal movement."
+  },
+  "future_or_unsupported_metrics": {
+    "respiratory_rate": {
+      "status": "future_or_experimental",
+      "value_breaths_per_min": null,
+      "explanation": "Respiratory rate may require a supervised multitask model such as BigSmall or additional validated signal processing."
+    },
+    "blood_pressure": {
+      "status": "not_measured",
+      "systolic_mmHg": null,
+      "diastolic_mmHg": null,
+      "explanation": "Camera-only blood pressure estimation requires validated calibration/modeling or cuff integration."
+    },
+    "pulse_wave_velocity": {
+      "status": "not_measured",
+      "value": null,
+      "explanation": "Pulse wave velocity requires timing between multiple pulse sites or additional sensors."
+    },
+    "spo2": {
+      "status": "not_measured",
+      "value_percent": null,
+      "explanation": "SpO2 requires a validated optical sensor or calibrated model. Do not present it as measured from webcam."
+    }
+  },
+  "available_from_webcam": {
+    "heart_rate": true,
+    "heart_rate_trend": true,
+    "rppg_waveform": true,
+    "signal_quality": true,
+    "recording_quality": true,
+    "respiratory_rate": false,
+    "blood_pressure": false,
+    "spo2": false,
+    "pulse_wave_velocity": false
+  },
+  "medical_notice": "Estimated wellness signal only, not diagnostic.",
+  "recording": {
+    "duration_seconds": 60.52,
+    "frame_count": 1392,
+    "estimated_fps": 23.0,
+    "video_path": "/Users/teresanguyen/Documents/NatalNanny/backend/rppg/output/202605170227140/vid.webm"
+  },
+  "rppg_analysis": {
+    "methods": {
+      "pos": {
+        "hr_bpm": 69.4,
+        "snr": 0.2564,
+        "status": "ok"
+      },
+      "chrom": {
+        "hr_bpm": 58.62,
+        "snr": 0.2436,
+        "status": "ok"
+      },
+      "green": {
+        "hr_bpm": 47.17,
+        "snr": 0.2256,
+        "status": "ok"
+      }
+    },
+    "consensus": {
+      "estimated_pulse_bpm": 64.01,
+      "pulse_category": "normal",
+      "pulse_label": "Within typical resting range",
+      "method_agreement": "moderate",
+      "retake_recommended": false
+    },
+    "signal_quality": {
+      "label": "good",
+      "best_snr": 0.2564,
+      "wellness_score": 85
+    },
+    "check_in_trend": "decreasing"
+  },
+  "safety": {
+    "not_diagnostic": true,
+    "disclaimer": "This is a camera-based wellness signal, not a medical diagnosis. Estimated pulse is for informational use only. Share trends with your care team.",
+    "urgent_notice": "Seek urgent medical care for chest pain, trouble breathing, fainting, seizure, severe headache, vision changes, heavy bleeding, or reduced fetal movement."
+  }
+}

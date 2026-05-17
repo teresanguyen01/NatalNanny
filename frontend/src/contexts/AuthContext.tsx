@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { authLogin, authSignup, authLogout, getProfile, getToken, isDemoMode } from '../lib/api'
+import { authLogin, authSignup, authLogout, getProfile, getToken, isDemoMode, type UserProfile } from '../lib/api'
 import { mockUser } from '../data/mockData'
 
 type UserRole = 'patient' | 'doctor' | null
@@ -23,7 +23,12 @@ interface AuthContextValue {
   displayName: string
   role: UserRole
   profileLoaded: boolean
+  firstName: string | null
+  lastName: string | null
+  emergencyContactName: string | null
+  emergencyContactPhone: string | null
   setRole: (role: UserRole) => void
+  setProfile: (profile: UserProfile) => void
   signInWithPassword: (email: string, password: string) => Promise<{ error: { message: string } | null }>
   signUp: (email: string, password: string) => Promise<{ error: { message: string } | null }>
   signOut: () => Promise<void>
@@ -48,6 +53,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(!isDemoMode)
   const [role, setRole] = useState<UserRole>(isDemoMode ? 'patient' : null)
   const [profileLoaded, setProfileLoaded] = useState(isDemoMode)
+  const [firstName, setFirstName] = useState<string | null>(null)
+  const [lastName, setLastName] = useState<string | null>(null)
+  const [emergencyContactName, setEmergencyContactName] = useState<string | null>(null)
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState<string | null>(null)
+
+  function setProfile(profile: UserProfile) {
+    setRole(profile.role)
+    setFirstName(profile.first_name)
+    setLastName(profile.last_name)
+    setEmergencyContactName(profile.emergency_contact_name)
+    setEmergencyContactPhone(profile.emergency_contact_phone)
+  }
 
   // On mount, check if a token already exists in localStorage
   useEffect(() => {
@@ -63,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getProfile()
       .then((profile) => {
         setSession({ token, user: { id: profile.id, email: '' } })
-        setRole(profile.role)
+        setProfile(profile)
         setProfileLoaded(true)
         setLoading(false)
       })
@@ -86,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch profile for role
       try {
         const profile = await getProfile()
-        setRole(profile.role)
+        setProfile(profile)
         setProfileLoaded(true)
       } catch {
         // Profile may not exist yet (new user) — that's fine
@@ -121,11 +138,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null)
     setRole(null)
     setProfileLoaded(false)
+    setFirstName(null)
+    setLastName(null)
+    setEmergencyContactName(null)
+    setEmergencyContactPhone(null)
   }
 
   const displayName = isDemoMode
     ? mockUser.name
-    : session?.user?.email?.split('@')[0] ?? 'User'
+    : (firstName || lastName)
+      ? [firstName, lastName].filter(Boolean).join(' ')
+      : session?.user?.email?.split('@')[0] ?? 'User'
 
   return (
     <AuthContext.Provider
@@ -137,7 +160,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName,
         role,
         profileLoaded,
+        firstName,
+        lastName,
+        emergencyContactName,
+        emergencyContactPhone,
         setRole,
+        setProfile,
         signInWithPassword,
         signUp,
         signOut,

@@ -11,6 +11,10 @@ class UserProfileRead(BaseModel):
     id: UUID
     role: UserRole | None
     mascot_health: int
+    first_name: str | None = None
+    last_name: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -20,6 +24,10 @@ class UserProfileRead(BaseModel):
 class UserProfileUpdate(BaseModel):
     mascot_health: int | None = Field(None, ge=0, le=100)
     role: UserRole | None = None
+    first_name: str | None = Field(None, max_length=100)
+    last_name: str | None = Field(None, max_length=100)
+    emergency_contact_name: str | None = Field(None, max_length=200)
+    emergency_contact_phone: str | None = Field(None, max_length=30)
 
 
 class HealthRecordRead(BaseModel):

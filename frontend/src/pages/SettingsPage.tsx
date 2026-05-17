@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { mockUser } from '../data/mockData'
 import { useAuth } from '../contexts/AuthContext'
-import { listMyPatients, addPatient, removePatient, listMyDoctors, type DoctorPatientLink } from '../lib/api'
+import { listMyPatients, addPatient, removePatient, listMyDoctors, updateProfile, type DoctorPatientLink } from '../lib/api'
 
 export default function SettingsPage() {
   const { displayName, signOut, role, isDemoMode } = useAuth()
@@ -18,25 +18,7 @@ export default function SettingsPage() {
 
         <div className="space-y-5">
           {/* Profile card */}
-          <div className="fade-up fade-up-1 rounded-3xl bg-white p-6 shadow-sm">
-            <div className="mb-5 flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-nn-deep-blue text-2xl font-bold text-white shadow-sm">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-xl font-bold text-nn-navy">{displayName}</p>
-                <p className="text-sm text-nn-navy-light">{isDemoMode ? mockUser.email : ''}</p>
-                <span className="mt-1 inline-block rounded-full bg-nn-pale-sky px-3 py-0.5 text-xs font-medium text-nn-deep-blue capitalize">
-                  {role ?? 'No role set'}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <SettingRow label="Full Name" value={displayName} />
-              <SettingRow label="Role" value={role ?? 'Not set'} />
-            </div>
-          </div>
+          <ProfileCard />
 
           {/* Doctor: My Patients card */}
           {role === 'doctor' && <DoctorPatientsCard />}
@@ -64,10 +46,12 @@ export default function SettingsPage() {
                   value={mockUser.riskFactors.join(', ')}
                   valueClass="text-amber-600"
                 />
-                <SettingRow label="Emergency Contact" value={mockUser.emergencyContact} />
               </div>
             </div>
           )}
+
+          {/* Emergency contact (patient only) */}
+          {role === 'patient' && <EmergencyContactCard />}
 
           {/* Notification preferences */}
           <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
@@ -130,6 +114,237 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function ProfileCard() {
+  const { displayName, role, isDemoMode, firstName, lastName, setProfile } = useAuth()
+  const [editing, setEditing] = useState(false)
+  const [firstInput, setFirstInput] = useState(firstName ?? '')
+  const [lastInput, setLastInput] = useState(lastName ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  // Keep inputs in sync when context loads
+  useEffect(() => {
+    if (!editing) {
+      setFirstInput(firstName ?? '')
+      setLastInput(lastName ?? '')
+    }
+  }, [firstName, lastName, editing])
+
+  async function handleSave() {
+    if (isDemoMode) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateProfile({
+        first_name: firstInput.trim() || undefined,
+        last_name: lastInput.trim() || undefined,
+      })
+      setProfile(updated)
+      setEditing(false)
+    } catch (e: any) {
+      setError(e.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleCancel() {
+    setFirstInput(firstName ?? '')
+    setLastInput(lastName ?? '')
+    setEditing(false)
+    setError('')
+  }
+
+  return (
+    <div className="fade-up fade-up-1 rounded-3xl bg-white p-6 shadow-sm">
+      <div className="mb-5 flex items-center gap-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-nn-deep-blue text-2xl font-bold text-white shadow-sm">
+          {displayName.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <p className="text-xl font-bold text-nn-navy">{displayName}</p>
+          <span className="mt-1 inline-block rounded-full bg-nn-pale-sky px-3 py-0.5 text-xs font-medium text-nn-deep-blue capitalize">
+            {role ?? 'No role set'}
+          </span>
+        </div>
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-nn-navy-light">First Name</label>
+              <input
+                value={firstInput}
+                onChange={(e) => setFirstInput(e.target.value)}
+                placeholder="First name"
+                className="w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-nn-navy-light">Last Name</label>
+              <input
+                value={lastInput}
+                onChange={(e) => setLastInput(e.target.value)}
+                placeholder="Last name"
+                className="w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+              />
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-xl bg-nn-deep-blue px-5 py-2 text-sm font-medium text-white disabled:opacity-40 transition-all"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={handleCancel}
+              className="rounded-xl border border-nn-mist px-5 py-2 text-sm font-medium text-nn-navy hover:bg-nn-pale-sky transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between border-b border-nn-mist/60 pb-3">
+            <span className="text-sm text-nn-navy-light">Full Name</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-nn-navy">{displayName}</span>
+              <button
+                onClick={() => setEditing(true)}
+                className="text-xs font-medium text-nn-deep-blue hover:underline"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+          <SettingRow label="Role" value={role ?? 'Not set'} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EmergencyContactCard() {
+  const { isDemoMode, emergencyContactName, emergencyContactPhone, setProfile } = useAuth()
+  const [editing, setEditing] = useState(false)
+  const [nameInput, setNameInput] = useState(emergencyContactName ?? '')
+  const [phoneInput, setPhoneInput] = useState(emergencyContactPhone ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!editing) {
+      setNameInput(emergencyContactName ?? '')
+      setPhoneInput(emergencyContactPhone ?? '')
+    }
+  }, [emergencyContactName, emergencyContactPhone, editing])
+
+  const displayName = isDemoMode
+    ? mockUser.emergencyContact
+    : emergencyContactName ?? 'Not set'
+  const displayPhone = isDemoMode ? '' : (emergencyContactPhone ?? '')
+
+  async function handleSave() {
+    if (isDemoMode) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateProfile({
+        emergency_contact_name: nameInput.trim() || undefined,
+        emergency_contact_phone: phoneInput.trim() || undefined,
+      })
+      setProfile(updated)
+      setEditing(false)
+    } catch (e: any) {
+      setError(e.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleCancel() {
+    setNameInput(emergencyContactName ?? '')
+    setPhoneInput(emergencyContactPhone ?? '')
+    setEditing(false)
+    setError('')
+  }
+
+  return (
+    <div className="fade-up fade-up-4 rounded-3xl bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-semibold text-nn-navy">Emergency Contact</h2>
+        {!editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs font-medium text-nn-deep-blue hover:underline"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-nn-navy-light">Contact Name</label>
+            <input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Full name"
+              className="w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-nn-navy-light">Phone Number</label>
+            <input
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="e.g. +1 (555) 000-0000"
+              type="tel"
+              className="w-full rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+            />
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-xl bg-nn-deep-blue px-5 py-2 text-sm font-medium text-white disabled:opacity-40 transition-all"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={handleCancel}
+              className="rounded-xl border border-nn-mist px-5 py-2 text-sm font-medium text-nn-navy hover:bg-nn-pale-sky transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <SettingRow label="Name" value={displayName} />
+          {displayPhone && <SettingRow label="Phone" value={displayPhone} />}
+          {!isDemoMode && !emergencyContactName && !emergencyContactPhone && (
+            <p className="text-sm text-nn-navy-light">No emergency contact set yet.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

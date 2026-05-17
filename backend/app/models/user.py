@@ -40,6 +40,10 @@ class UserProfile(Base):
         nullable=True,
     )
     mascot_health: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    emergency_contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    emergency_contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
