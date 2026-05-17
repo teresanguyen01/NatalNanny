@@ -350,4 +350,69 @@ export const api = {
   },
 }
 
+// ── Health Documents ─────────────────────────────────────────────────────────
+
+export interface HealthDocument {
+  id: string
+  file_name: string
+  file_size_bytes: number
+  document_type: string | null
+  uploaded_at: string
+  processing_status: 'uploaded' | 'processing' | 'indexed' | 'partially_indexed' | 'failed'
+  page_count: number | null
+  error_message: string | null
+  metadata: Record<string, unknown>
+  warning?: string
+}
+
+export interface UploadHealthDocumentResult {
+  document_id: string
+  file_name: string
+  file_size_bytes: number
+  page_count: number | null
+  processing_status: string
+  uploaded_at: string
+  warning?: string
+  error?: string
+}
+
+export function listHealthDocuments(): Promise<HealthDocument[]> {
+  return fetchApi('/profile/health-documents')
+}
+
+export function uploadHealthDocument(file: File): Promise<UploadHealthDocumentResult> {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  return uploadFile('/profile/health-documents/upload', form)
+}
+
+export function deleteHealthDocument(documentId: string): Promise<void> {
+  return fetchApi(`/profile/health-documents/${documentId}`, { method: 'DELETE' })
+}
+
+// ── RAG Chat ─────────────────────────────────────────────────────────────────
+
+export interface RagSource {
+  source_type: 'health_document' | 'checkup_session' | string
+  document_id?: string
+  title?: string
+  page_number?: number | null
+  snippet?: string
+  session_id?: string
+  created_at?: string
+}
+
+export interface RagChatResponse {
+  answer: string
+  sources: RagSource[]
+  safety_notice: string
+}
+
+export function ragChat(message: string): Promise<RagChatResponse> {
+  return fetchApi('/chat/rag', {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  })
+}
+
 export { getToken }

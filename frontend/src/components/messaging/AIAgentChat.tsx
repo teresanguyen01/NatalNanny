@@ -1,56 +1,265 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getOrCreateAgentThread } from '../../lib/api'
-import ChatPanel from './ChatPanel'
+import { ragChat, type RagSource, type RagChatResponse } from '../../lib/api'
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: RagSource[]
+  safety_notice?: string
+}
+
+const DEMO_SUGGESTIONS = [
+  'Summarize my last check-in',
+  'What symptoms did I report?',
+  'Has my estimated pulse been trending higher?',
+  'What should I ask my care team?',
+]
 
 export default function AIAgentChat() {
   const { isDemoMode } = useAuth()
-  const [threadId, setThreadId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    if (isDemoMode) {
-      setThreadId('demo-agent-thread')
-      return
-    }
-    getOrCreateAgentThread()
-      .then((t) => setThreadId(t.id))
-      .catch(() => {})
-  }, [isDemoMode])
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
-  const avatar = (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm">
-      <svg viewBox="0 0 20 20" fill="white" className="h-5 w-5">
-        <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
-      </svg>
-    </div>
-  )
+  async function sendMessage(text?: string) {
+    const content = (text ?? input).trim()
+    if (!content || loading) return
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+    }
+    setMessages((prev) => [...prev, userMsg])
+    setInput('')
+    setLoading(true)
+
+    try {
+      let response: RagChatResponse
+      if (isDemoMode) {
+        await new Promise((r) => setTimeout(r, 900))
+        response = {
+          answer:
+            "Based on your uploaded documents and check-in history, I found some relevant wellness signals from your recent sessions. This is demo mode — connect to the backend to see your real records.\n\nThis may be helpful to share with your care team. Not diagnostic.",
+          sources: [
+            {
+              source_type: 'checkup_session',
+              session_id: 'demo-session-1',
+              created_at: new Date().toISOString(),
+              snippet: 'Demo checkup session data…',
+            },
+          ],
+          safety_notice:
+            'NatalNanny answers from your uploaded documents and check-in history. Not a diagnosis. For medical decisions, contact your care team.',
+        }
+      } else {
+        response = await ragChat(content)
+      }
+
+      const assistantMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: response.answer,
+        sources: response.sources,
+        safety_notice: response.safety_notice,
+      }
+      setMessages((prev) => [...prev, assistantMsg])
+    } catch (err: any) {
+      const errMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content:
+          err.message?.includes('401')
+            ? 'Please sign in to use NatalNanny AI.'
+            : 'Something went wrong. Please try again or contact your care team directly.',
+      }
+      setMessages((prev) => [...prev, errMsg])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      void sendMessage()
+    }
+  }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* AI notice banner */}
-      <div className="flex-shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
-               className="h-4 w-4 text-amber-700 flex-shrink-0" strokeWidth="2">
-            <path d="M8 1 L1 15 h14 L8 1 Z" strokeLinejoin="round" />
-            <path d="M8 6 v4" strokeLinecap="round" />
-            <circle cx="8" cy="12" r="0.5" fill="currentColor" />
-          </svg>
-          <p className="text-xs text-amber-700">
-            <strong>Development mode:</strong> AI responses not yet implemented.
-            Messages are saved but won't receive replies.
-          </p>
+    <div className="flex h-full flex-col bg-nn-pale-sky/30">
+      {/* Header */}
+      <div className="flex-shrink-0 border-b border-nn-mist bg-white px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm flex-shrink-0">
+            <svg viewBox="0 0 20 20" fill="white" className="h-5 w-5">
+              <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-nn-navy">NatalNanny AI</p>
+            <p className="text-[11px] text-nn-navy-light">Your health records · Not a diagnosis</p>
+          </div>
         </div>
       </div>
 
-      {/* Chat panel */}
-      <div className="flex-1 overflow-hidden">
-        <ChatPanel
-          threadId={threadId}
-          contactName="NatalNanny AI"
-          contactAvatar={avatar}
-          statusLine="AI Assistant · Not a diagnosis"
-        />
+      {/* Safety banner */}
+      <div className="flex-shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2.5">
+        <p className="text-[10px] text-amber-700 leading-snug">
+          <strong>Not diagnostic.</strong> Answers come from your uploaded documents and check-in history.
+          For medical decisions, contact your care team.{' '}
+          <strong>Urgent symptoms?</strong> Call 911 or your provider immediately.
+        </p>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm">
+              <svg viewBox="0 0 20 20" fill="white" className="h-7 w-7">
+                <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
+              </svg>
+            </div>
+            <p className="font-bold text-nn-navy">Ask NatalNanny AI</p>
+            <p className="mt-1 text-xs text-nn-navy-light max-w-xs">
+              Ask questions about your uploaded health documents, prior check-ins, or voice notes.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {DEMO_SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => sendMessage(s)}
+                  className="rounded-full border border-nn-mist bg-white px-3 py-1.5 text-xs font-medium text-nn-navy hover:border-nn-periwinkle hover:bg-nn-pale-sky transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg) =>
+          msg.role === 'user' ? (
+            <div key={msg.id} className="flex justify-end">
+              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-nn-deep-blue px-4 py-3">
+                <p className="text-sm text-white whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            </div>
+          ) : (
+            <div key={msg.id} className="flex gap-2.5">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm mt-1">
+                <svg viewBox="0 0 20 20" fill="white" className="h-4 w-4">
+                  <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
+                </svg>
+              </div>
+              <div className="max-w-[85%] space-y-2">
+                <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm border border-nn-mist">
+                  <p className="text-sm text-nn-navy whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                </div>
+
+                {/* Source chips */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-1">
+                    {msg.sources.map((src, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 rounded-full border border-nn-mist bg-white px-2.5 py-1 text-[10px] font-medium text-nn-deep-blue"
+                        title={src.snippet}
+                      >
+                        {src.source_type === 'health_document' ? (
+                          <>
+                            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3">
+                              <path d="M9 1H3a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V5L9 1z" />
+                              <path d="M9 1v4h4" />
+                            </svg>
+                            {src.title || 'Health Doc'}
+                            {src.page_number != null && ` · p${src.page_number}`}
+                          </>
+                        ) : (
+                          <>
+                            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3 w-3">
+                              <circle cx="7" cy="7" r="6" />
+                              <path d="M7 4v4l2 1" strokeLinecap="round" />
+                            </svg>
+                            Check-in
+                            {src.created_at
+                              ? ` · ${new Date(src.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                              : ''}
+                          </>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Safety notice (collapsed) */}
+                {msg.safety_notice && (
+                  <p className="px-1 text-[10px] text-nn-navy-light leading-snug">
+                    {msg.safety_notice}
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        )}
+
+        {loading && (
+          <div className="flex gap-2.5">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm">
+              <svg viewBox="0 0 20 20" fill="white" className="h-4 w-4">
+                <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
+              </svg>
+            </div>
+            <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm border border-nn-mist">
+              <div className="flex gap-1.5 items-center h-5">
+                <span className="h-2 w-2 rounded-full bg-nn-periwinkle animate-bounce [animation-delay:0ms]" />
+                <span className="h-2 w-2 rounded-full bg-nn-periwinkle animate-bounce [animation-delay:150ms]" />
+                <span className="h-2 w-2 rounded-full bg-nn-periwinkle animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="flex-shrink-0 border-t border-nn-mist bg-white px-4 py-3">
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your health documents or check-in history…"
+            rows={1}
+            disabled={loading}
+            className="flex-1 resize-none rounded-2xl border border-nn-mist bg-nn-pale-sky px-4 py-3 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/30 disabled:opacity-50 max-h-32 leading-snug"
+            style={{ fieldSizing: 'content' } as React.CSSProperties}
+          />
+          <button
+            onClick={() => void sendMessage()}
+            disabled={!input.trim() || loading}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-nn-deep-blue text-white shadow-sm hover:bg-nn-deep-blue/90 disabled:opacity-40 transition-colors"
+            aria-label="Send"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 rotate-90">
+              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            </svg>
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[10px] text-nn-navy-light">
+          Based on your uploaded documents and check-in history · Not a diagnosis
+        </p>
       </div>
     </div>
   )
