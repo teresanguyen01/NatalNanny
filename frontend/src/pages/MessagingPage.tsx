@@ -9,6 +9,12 @@ import {
   acceptMessageRequest,
   rejectMessageRequest,
   getMessages,
+  getUserProfile,
+  getSentConnectionRequests,
+  getReceivedConnectionRequests,
+  listMyPatients,
+  listMyDoctors,
+  sendConnectionRequest,
   type Contact,
   type ThreadWithStatus,
   type UserSearchResult,
@@ -19,8 +25,10 @@ import UserSearchModal from '../components/messaging/UserSearchModal'
 import MessageRequestModal from '../components/messaging/MessageRequestModal'
 import MessageRequestItem from '../components/messaging/MessageRequestItem'
 
+type ConnectionStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'loading'
+
 export default function MessagingPage() {
-  const { isDemoMode } = useAuth()
+  const { isDemoMode, role } = useAuth()
   const [searchParams] = useSearchParams()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [activeContactId, setActiveContactId] = useState<string | null>(null)
@@ -35,6 +43,8 @@ export default function MessagingPage() {
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null)
   const [messageRequests, setMessageRequests] = useState<ThreadWithStatus[]>([])
   const [requestMessages, setRequestMessages] = useState<Map<string, string>>(new Map())
+  const [requestInitiators, setRequestInitiators] = useState<Map<string, string>>(new Map())
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('none')
 
   // Load contacts
   useEffect(() => {
@@ -61,21 +71,31 @@ export default function MessagingPage() {
       const requests = await getReceivedMessageRequests()
       setMessageRequests(requests)
 
-      // Load first message for each request
+      // Load first message and initiator profiles in parallel
       const messages = new Map<string, string>()
+      const initiators = new Map<string, string>()
+
       await Promise.all(
         requests.map(async (req) => {
-          try {
-            const page = await getMessages(req.id)
-            if (page.items.length > 0) {
-              messages.set(req.id, page.items[0].content)
-            }
-          } catch {
-            // Ignore errors for individual messages
-          }
+          await Promise.all([
+            getMessages(req.id).then((page) => {
+              if (page.items.length > 0) {
+                messages.set(req.id, page.items[0].content)
+              }
+            }).catch(() => {}),
+            req.initiator_id
+              ? getUserProfile(req.initiator_id).then((profile) => {
+                  const name = [profile.first_name, profile.last_name]
+                    .filter(Boolean)
+                    .join(' ') || (profile.role === 'doctor' ? 'Doctor' : 'Patient')
+                  initiators.set(req.initiator_id!, name)
+                }).catch(() => {})
+              : Promise.resolve(),
+          ])
         })
       )
       setRequestMessages(messages)
+      setRequestInitiators(initiators)
     } catch {
       // Ignore errors
     }
@@ -101,6 +121,7 @@ export default function MessagingPage() {
     setActiveContactId(contact.id)
     setMobileShowChat(true)
     setThreadId(null)
+    setConnectionStatus('none')
 
     if (contact.id === 'ai-agent') return // AI agent handles its own thread
 
@@ -108,6 +129,9 @@ export default function MessagingPage() {
       setThreadId('demo-thread-' + contact.id)
       return
     }
+
+    // Check connection status and resolve thread in parallel
+    checkConnectionStatus(contact)
 
     setLoadingThread(true)
     try {
@@ -120,14 +144,70 @@ export default function MessagingPage() {
     }
   }
 
-  async function handleAcceptRequest(threadId: string) {
+  async function checkConnectionStatus(contact: Contact) {
+    if (isDemoMode || contact.id === 'ai-agent' || !contact.role || !role || role === contact.role) {
+      setConnectionStatus('none')
+      return
+    }
+    setConnectionStatus('loading')
     try {
-      await acceptMessageRequest(threadId)
+      const [sentReqs, receivedReqs, myLinks] = await Promise.all([
+        getSentConnectionRequests(),
+        getReceivedConnectionRequests(),
+        role === 'doctor' ? listMyPatients() : listMyDoctors(),
+      ])
+      const linked = myLinks.some((l) =>
+        role === 'doctor' ? l.patient_id === contact.id : l.doctor_id === contact.id
+      )
+      if (linked) { setConnectionStatus('accepted'); return }
+
+      const sentPending = sentReqs.find((r) =>
+        role === 'doctor' ? r.patient_id === contact.id : r.doctor_id === contact.id
+      )
+      if (sentPending) { setConnectionStatus('pending_sent'); return }
+
+      const receivedPending = receivedReqs.find((r) =>
+        role === 'doctor' ? r.patient_id === contact.id : r.doctor_id === contact.id
+      )
+      if (receivedPending) { setConnectionStatus('pending_received'); return }
+
+      setConnectionStatus('none')
+    } catch {
+      setConnectionStatus('none')
+    }
+  }
+
+  async function handleSendConnectionRequest() {
+    if (!activeContactId) return
+    setConnectionStatus('loading')
+    try {
+      await sendConnectionRequest(activeContactId)
+      setConnectionStatus('pending_sent')
+    } catch {
+      setConnectionStatus('none')
+    }
+  }
+
+  async function handleAcceptRequest(reqThreadId: string) {
+    try {
+      const acceptedThread = await acceptMessageRequest(reqThreadId)
       await loadMessageRequests()
-      // Refresh contacts to show newly accepted conversation
-      getContacts().then(setContacts).catch(() => {})
-      // Switch to active tab
+
+      // Refresh contacts — backend now includes accepted thread participants
+      const updatedContacts = await getContacts()
+      setContacts(updatedContacts)
+
+      // Switch to active tab and auto-open the newly accepted chat
       setActiveTab('active')
+      const otherUserId = acceptedThread.initiator_id
+      if (otherUserId) {
+        const contact = updatedContacts.find((c) => c.id === otherUserId)
+        if (contact) {
+          setActiveContactId(contact.id)
+          setMobileShowChat(true)
+          setThreadId(acceptedThread.id)
+        }
+      }
     } catch (err) {
       console.error('Failed to accept request:', err)
     }
@@ -238,9 +318,9 @@ export default function MessagingPage() {
               </div>
             ) : (
               messageRequests.map((request) => {
-                // Get display name from the first message sender (will be the other person)
                 const firstMessage = requestMessages.get(request.id) || 'Sent you a message request'
-                const displayName = `User ${request.initiator_id?.slice(0, 8) || 'Unknown'}`
+                const displayName = (request.initiator_id && requestInitiators.get(request.initiator_id))
+                  || 'Unknown User'
 
                 return (
                   <MessageRequestItem
@@ -355,6 +435,12 @@ export default function MessagingPage() {
                   </div>
                 }
                 statusLine={activeContact.role === 'doctor' ? 'Available · Care provider' : 'Patient'}
+                connectionStatus={
+                  activeContact.role && role && role !== activeContact.role
+                    ? connectionStatus
+                    : undefined
+                }
+                onSendConnectionRequest={handleSendConnectionRequest}
               />
             )
           ) : (

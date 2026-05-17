@@ -3,14 +3,18 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getMessages, sendMessageRest, type MessageItem } from '../../lib/api'
 import { useWebSocket } from '../../hooks/useWebSocket'
 
+type ConnectionStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'loading'
+
 interface ChatPanelProps {
   threadId: string | null
   contactName: string
   contactAvatar: React.ReactNode
   statusLine?: string
+  connectionStatus?: ConnectionStatus
+  onSendConnectionRequest?: () => void
 }
 
-export default function ChatPanel({ threadId, contactName, contactAvatar, statusLine }: ChatPanelProps) {
+export default function ChatPanel({ threadId, contactName, contactAvatar, statusLine, connectionStatus, onSendConnectionRequest }: ChatPanelProps) {
   const { user, isDemoMode } = useAuth()
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [input, setInput] = useState('')
@@ -131,7 +135,52 @@ export default function ChatPanel({ threadId, contactName, contactAvatar, status
             </p>
           )}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {/* Doctor-patient connection button */}
+          {connectionStatus === 'loading' && (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-nn-periwinkle border-t-nn-deep-blue" />
+          )}
+          {connectionStatus === 'none' && (
+            <button
+              onClick={onSendConnectionRequest}
+              className="flex items-center gap-1.5 rounded-full bg-nn-deep-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-nn-deep-blue/90 transition-colors"
+              title="Send a doctor-patient connection request"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
+                <circle cx="6" cy="5" r="3" />
+                <path d="M1 14c0-3 2-5 5-5" strokeLinecap="round" />
+                <path d="M12 9v5M9.5 11.5h5" strokeLinecap="round" />
+              </svg>
+              Connect
+            </button>
+          )}
+          {connectionStatus === 'pending_sent' && (
+            <span className="flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
+                <circle cx="8" cy="8" r="6" />
+                <path d="M8 5v3l2 1.5" strokeLinecap="round" />
+              </svg>
+              Request Sent
+            </span>
+          )}
+          {connectionStatus === 'pending_received' && (
+            <span className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-700">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
+                <circle cx="8" cy="8" r="6" />
+                <path d="M5 8l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Pending (check Settings)
+            </span>
+          )}
+          {connectionStatus === 'accepted' && (
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
+                <circle cx="8" cy="8" r="6" />
+                <path d="M5 8l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Connected
+            </span>
+          )}
           <span className="rounded-full bg-nn-pale-sky px-3 py-1 text-xs text-nn-navy-light flex items-center gap-1">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-3.5 w-3.5">
               <rect x="1" y="2" width="14" height="12" rx="2" />

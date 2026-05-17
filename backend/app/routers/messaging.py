@@ -149,10 +149,11 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
     """Return messaging contacts based on user role.
 
     Doctor → their patients. Patient → their doctors. Both include AI agent as synthetic contact.
-    Only returns accepted connections.
+    Includes contacts from accepted DoctorPatient links AND accepted message threads.
     """
     profile = db.get(UserProfile, uuid.UUID(user.id))
     contacts: list[ContactRead] = []
+    seen_ids: set[str] = set()
 
     if profile and profile.role == UserRole.doctor:
         # Return patients with accepted connections only
@@ -173,6 +174,7 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
                     display_name=_format_contact_name(p),
                     email=None,
                 ))
+                seen_ids.add(str(p.id))
     elif profile and profile.role == UserRole.patient:
         # Return doctors with accepted connections only
         links = db.execute(
@@ -192,6 +194,42 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
                     display_name=_format_contact_name(d),
                     email=None,
                 ))
+                seen_ids.add(str(d.id))
+
+    # Also include participants from accepted message threads not already in the list
+    all_thread_ids = db.execute(
+        select(ThreadParticipant.thread_id).where(
+            ThreadParticipant.user_id == uuid.UUID(user.id)
+        )
+    ).scalars().all()
+
+    if all_thread_ids:
+        accepted_threads = db.execute(
+            select(MessageThread).where(
+                MessageThread.id.in_(all_thread_ids),
+                MessageThread.type == ThreadType.user,
+                MessageThread.status == ThreadStatus.accepted,
+            )
+        ).scalars().all()
+
+        for thread in accepted_threads:
+            other_id = db.execute(
+                select(ThreadParticipant.user_id).where(
+                    ThreadParticipant.thread_id == thread.id,
+                    ThreadParticipant.user_id != uuid.UUID(user.id),
+                )
+            ).scalar_one_or_none()
+
+            if other_id and str(other_id) not in seen_ids:
+                other_profile = db.get(UserProfile, other_id)
+                if other_profile:
+                    contacts.append(ContactRead(
+                        id=str(other_profile.id),
+                        role=other_profile.role,
+                        display_name=_format_contact_name(other_profile),
+                        email=None,
+                    ))
+                    seen_ids.add(str(other_id))
 
     # Always include AI agent as synthetic contact
     contacts.append(ContactRead(
