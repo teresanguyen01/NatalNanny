@@ -12,6 +12,9 @@ frontend/.vite/
 backend/.env
 frontend/.env
 
+# rPPG session output (recordings + results — large binary files)
+backend/rppg/output/
+
 # Python
 __pycache__/
 *.py[cod]
