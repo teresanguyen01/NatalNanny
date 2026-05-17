@@ -92,14 +92,16 @@ export default function ChatPanel({ threadId, contactName, contactAvatar, status
 
     // Send via REST (WebSocket will echo it back via broadcast)
     try {
+      console.log('[SEND DEBUG] Calling sendMessageRest, threadId=', threadId, 'text=', text)
       const msg = await sendMessageRest(threadId, text)
+      console.log('[SEND DEBUG] sendMessageRest succeeded, msg=', msg)
       // Add optimistically if WS hasn't delivered it yet
       setMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev
         return [...prev, msg]
       })
-    } catch {
-      // Could show error toast here
+    } catch (err) {
+      console.error('[SEND DEBUG] sendMessageRest FAILED:', err)
     }
   }
 

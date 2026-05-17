@@ -102,14 +102,18 @@ def _notify_recipients_by_email(
     thread_id: uuid.UUID,
     sender_id: uuid.UUID,
     sender_profile: UserProfile,
+    message_content: str = "",
 ) -> None:
     """Send an email notification to each thread participant who is not the sender."""
     from app.services.email_service import EmailService
     email_svc = EmailService(settings)
+    print(f"[EMAIL DEBUG] _notify_recipients_by_email called — thread={thread_id}, sender={sender_id}")
     if not email_svc.is_configured():
+        print(f"[EMAIL DEBUG] Email service NOT configured (smtp_from_email or smtp_from_password missing) — skipping")
         return
 
     sender_name = _format_contact_name(sender_profile)
+    print(f"[EMAIL DEBUG] Sender name: {sender_name!r}")
 
     participant_ids = db.execute(
         select(ThreadParticipant.user_id).where(
@@ -118,18 +122,31 @@ def _notify_recipients_by_email(
         )
     ).scalars().all()
 
+    print(f"[EMAIL DEBUG] Recipients (excluding sender): {participant_ids}")
+
     for recipient_id in participant_ids:
         recipient_profile = db.get(UserProfile, recipient_id)
-        if not recipient_profile or not recipient_profile.email_message_notification_enabled:
+        if not recipient_profile:
+            print(f"[EMAIL DEBUG] Skipping {recipient_id} — no profile found")
+            continue
+        if not recipient_profile.email_message_notification_enabled:
+            print(f"[EMAIL DEBUG] Skipping {recipient_id} — email_message_notification_enabled=False")
             continue
         recipient_user = db.get(User, recipient_id)
         if not recipient_user:
+            print(f"[EMAIL DEBUG] Skipping {recipient_id} — no User row found")
             continue
-        email_svc.send_message_notification(
+        print(f"[EMAIL DEBUG] Sending notification email to {recipient_user.email!r} (user={recipient_id})")
+        ok, err = email_svc.send_message_notification(
             to_email=recipient_user.email,
             first_name=recipient_profile.first_name,
             sender_name=sender_name,
+            message_content=message_content,
         )
+        if ok:
+            print(f"[EMAIL DEBUG] Email sent successfully to {recipient_user.email!r}")
+        else:
+            print(f"[EMAIL DEBUG] Email FAILED to {recipient_user.email!r}: {err}")
 
 
 def _find_thread_between_users(db: Session, user1_id: uuid.UUID, user2_id: uuid.UUID) -> MessageThread | None:
@@ -422,10 +439,13 @@ async def send_message(
     await _manager.broadcast(str(thread_id), outbound)
 
     # Email notification to recipients
+    print(f"[REST DEBUG] Message sent in thread={thread_id}, sender={sender_id}, thread_type={thread.type}")
     if thread.type == ThreadType.user:
         sender_profile = db.get(UserProfile, sender_id)
         if sender_profile:
-            _notify_recipients_by_email(db, cfg, thread_id, sender_id, sender_profile)
+            _notify_recipients_by_email(db, cfg, thread_id, sender_id, sender_profile, message_content=payload.content)
+        else:
+            print(f"[REST DEBUG] No sender profile found for {sender_id} — skipping email")
 
     # TODO: for agent threads, enqueue async agent reply via task queue
     return _msg_to_schema(msg)
@@ -519,7 +539,7 @@ async def send_message_request(payload: MessageRequestCreate, user: Auth, db: DB
     sender_id = uuid.UUID(user.id)
     sender_profile = db.get(UserProfile, sender_id)
     if sender_profile:
-        _notify_recipients_by_email(db, cfg, thread.id, sender_id, sender_profile)
+        _notify_recipients_by_email(db, cfg, thread.id, sender_id, sender_profile, message_content=payload.initial_message)
 
     return thread
 
@@ -704,29 +724,39 @@ async def websocket_messaging(
 
     await websocket.accept()
     _manager.connect(str(thread_id), current_user.id, websocket)
+    print(f"[WS DEBUG] User {current_user.id} ({current_user.email}) connected to thread {thread_id}", flush=True)
 
     try:
         while True:
             raw = await websocket.receive_text()
+            print(f"[WS DEBUG] Raw event received from {current_user.id}: {raw[:200]}", flush=True)
             try:
                 event = json.loads(raw)
             except json.JSONDecodeError:
+                print(f"[WS DEBUG] Failed to parse JSON: {raw[:200]}", flush=True)
                 continue
 
             event_type = event.get("type")
+            print(f"[WS DEBUG] Event type: {event_type!r}")
 
             if event_type == "message":
                 content = event.get("content", "").strip()
                 if not content:
+                    print(f"[WS DEBUG] Empty content — skipping")
                     continue
 
                 thread = db.get(MessageThread, thread_id)
                 if thread is None:
+                    print(f"[WS DEBUG] Thread {thread_id} not found — skipping")
                     continue
+
+                # Capture before commit — commit expires all ORM objects
+                thread_type = thread.type
+                sender_id = uuid.UUID(current_user.id)
 
                 msg = Message(
                     thread_id=thread_id,
-                    sender_id=uuid.UUID(current_user.id),
+                    sender_id=sender_id,
                     sender_type=SenderType.user,
                     content=content,
                 )
@@ -737,6 +767,19 @@ async def websocket_messaging(
 
                 outbound = {"type": "message", "data": _msg_to_schema(msg).model_dump(mode="json")}
                 await _manager.broadcast(str(thread_id), outbound)
+
+                print(f"[WS DEBUG] Message saved — thread={thread_id}, sender={sender_id}, thread_type={thread_type}", flush=True)
+                if thread_type == ThreadType.user:
+                    sender_profile = db.get(UserProfile, sender_id)
+                    if sender_profile:
+                        try:
+                            _notify_recipients_by_email(db, cfg, thread_id, sender_id, sender_profile, message_content=content)
+                        except Exception as exc:
+                            print(f"[WS DEBUG] Email notification raised an exception: {exc!r}", flush=True)
+                    else:
+                        print(f"[WS DEBUG] No sender profile found for {sender_id} — skipping email", flush=True)
+                else:
+                    print(f"[WS DEBUG] Thread type is {thread_type!r}, not 'user' — no email sent", flush=True)
 
             elif event_type == "typing":
                 is_typing = bool(event.get("is_typing", False))
@@ -762,6 +805,10 @@ async def websocket_messaging(
                     await _manager.broadcast(str(thread_id), outbound, exclude=websocket)
 
     except WebSocketDisconnect:
-        pass
+        print(f"[WS DEBUG] User {current_user.id} disconnected from thread {thread_id}", flush=True)
+    except Exception as exc:
+        print(f"[WS DEBUG] UNHANDLED EXCEPTION in WS handler for user {current_user.id}: {exc!r}", flush=True)
+        import traceback
+        traceback.print_exc()
     finally:
         _manager.disconnect(str(thread_id), current_user.id, websocket)
