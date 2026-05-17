@@ -25,13 +25,13 @@ export default function DailyCheckupCTA({ todayCheckupComplete }: DailyCheckupCT
         <div className="flex gap-3">
           <button
             onClick={() => navigate('/checkup/results')}
-            className="flex-1 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 transition-colors"
+            className="flex-1 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 transition-colors"
           >
             View results
           </button>
           <button
             onClick={() => navigate('/messaging')}
-            className="flex-1 rounded-xl bg-emerald-100 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition-colors"
+            className="flex-1 rounded-xl bg-emerald-100 px-5 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-200 transition-colors"
           >
             Share with doctor
           </button>
@@ -54,7 +54,7 @@ export default function DailyCheckupCTA({ todayCheckupComplete }: DailyCheckupCT
       </div>
       <button
         onClick={() => navigate('/checkup')}
-        className="w-full rounded-xl bg-nn-deep-blue px-6 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-nn-navy-light transition-colors"
+        className="w-full rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-nn-deep-blue-hover transition-colors"
       >
         Start today's 60-second checkup
       </button>

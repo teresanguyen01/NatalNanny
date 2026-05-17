@@ -5,6 +5,7 @@ import { listMyPatients, addPatient, removePatient, listMyDoctors, updateProfile
 
 export default function SettingsPage() {
   const { displayName, signOut, role, isDemoMode } = useAuth()
+  const [activeTab, setActiveTab] = useState<'profile' | 'care-team' | 'health' | 'preferences'>('profile')
 
   return (
     <div className="min-h-full p-6 lg:p-8">
@@ -16,45 +17,72 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {/* Tab navigation */}
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          {[
+            { id: 'profile' as const, label: 'Profile' },
+            { id: 'care-team' as const, label: 'Care Team' },
+            ...(role === 'patient' ? [{ id: 'health' as const, label: 'Health Context' }] : []),
+            { id: 'preferences' as const, label: 'Preferences' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-nn-deep-blue text-white'
+                  : 'bg-white text-nn-navy hover:bg-nn-pale-sky border border-nn-mist'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-5">
-          {/* Profile card */}
-          <ProfileCard />
+          {/* Profile tab */}
+          {activeTab === 'profile' && <ProfileCard />}
 
-          {/* Doctor: My Patients card */}
-          {role === 'doctor' && <DoctorPatientsCard />}
-
-          {/* Patient: My Care Team card */}
-          {role === 'patient' && <PatientCareTeamCard />}
-
-          {/* Health context card (patient only) */}
-          {role === 'patient' && (
-            <div className="fade-up fade-up-3 rounded-3xl bg-white p-6 shadow-sm">
-              <h2 className="mb-4 font-semibold text-nn-navy">Health Context</h2>
-              <div className="space-y-3">
-                <SettingRow label="Gestational Week" value={`Week ${mockUser.gestationalWeek} of 40`} />
-                <SettingRow
-                  label="Due Date"
-                  value={new Date(mockUser.dueDate).toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                />
-                <SettingRow label="Care Team" value={mockUser.careTeam} />
-                <SettingRow
-                  label="Risk Factors"
-                  value={mockUser.riskFactors.join(', ')}
-                  valueClass="text-amber-600"
-                />
-              </div>
-            </div>
+          {/* Care Team tab */}
+          {activeTab === 'care-team' && (
+            <>
+              {role === 'doctor' && <DoctorPatientsCard />}
+              {role === 'patient' && <PatientCareTeamCard />}
+            </>
           )}
 
-          {/* Emergency contact (patient only) */}
-          {role === 'patient' && <EmergencyContactCard />}
+          {/* Health tab (patient only) */}
+          {activeTab === 'health' && role === 'patient' && (
+            <>
+              {/* Health context card */}
+              <div className="fade-up fade-up-3 rounded-3xl bg-white p-6 shadow-sm">
+                <h2 className="mb-4 font-semibold text-nn-navy">Health Context</h2>
+                <div className="space-y-3">
+                  <SettingRow label="Gestational Week" value={`Week ${mockUser.gestationalWeek} of 40`} />
+                  <SettingRow
+                    label="Due Date"
+                    value={new Date(mockUser.dueDate).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  />
+                  <SettingRow label="Care Team" value={mockUser.careTeam} />
+                  <SettingRow
+                    label="Risk Factors"
+                    value={mockUser.riskFactors.join(', ')}
+                    valueClass="text-amber-600"
+                  />
+                </div>
+              </div>
+              {/* Emergency contact */}
+              <EmergencyContactCard />
+            </>
+          )}
 
-          {/* Notification preferences */}
-          <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
+          {/* Preferences tab */}
+          {activeTab === 'preferences' && (
+            <div className="fade-up fade-up-5 rounded-3xl bg-white p-6 shadow-sm">
             <h2 className="mb-4 font-semibold text-nn-navy">Notification Preferences</h2>
             <div className="space-y-3">
               {[
@@ -83,8 +111,9 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+          )}
 
-          {/* Safety notice */}
+          {/* Safety notice - always visible */}
           <div className="fade-up fade-up-6 rounded-3xl border border-amber-200 bg-amber-50 p-6">
             <div className="flex gap-3">
               <svg viewBox="0 0 20 20" fill="none" stroke="#d97706" strokeWidth="1.8" className="mt-0.5 h-5 w-5 flex-shrink-0">
@@ -203,13 +232,13 @@ function ProfileCard() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="rounded-xl bg-nn-deep-blue px-5 py-2 text-sm font-medium text-white disabled:opacity-40 transition-all"
+              className="rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-medium text-white disabled:opacity-40 transition-all"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={handleCancel}
-              className="rounded-xl border border-nn-mist px-5 py-2 text-sm font-medium text-nn-navy hover:bg-nn-pale-sky transition-colors"
+              className="rounded-xl border border-nn-mist px-5 py-2.5 text-sm font-medium text-nn-navy hover:bg-nn-pale-sky transition-colors"
             >
               Cancel
             </button>
@@ -324,13 +353,13 @@ function EmergencyContactCard() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="rounded-xl bg-nn-deep-blue px-5 py-2 text-sm font-medium text-white disabled:opacity-40 transition-all"
+              className="rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-medium text-white disabled:opacity-40 transition-all"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={handleCancel}
-              className="rounded-xl border border-nn-mist px-5 py-2 text-sm font-medium text-nn-navy hover:bg-nn-pale-sky transition-colors"
+              className="rounded-xl border border-nn-mist px-5 py-2.5 text-sm font-medium text-nn-navy hover:bg-nn-pale-sky transition-colors"
             >
               Cancel
             </button>
@@ -420,24 +449,29 @@ function DoctorPatientsCard() {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <input
-          value={newPatientId}
-          onChange={(e) => setNewPatientId(e.target.value)}
-          placeholder="Patient UUID"
-          className="flex-1 rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
-        />
-        <button
-          onClick={handleAdd}
-          disabled={loading || !newPatientId.trim()}
-          className="rounded-xl bg-nn-deep-blue px-4 py-2.5 text-sm font-medium text-white disabled:opacity-40 transition-all"
-        >
-          Add Patient
-        </button>
+      <div>
+        <div className="flex gap-2">
+          <input
+            value={newPatientId}
+            onChange={(e) => setNewPatientId(e.target.value)}
+            placeholder="Paste patient ID here"
+            className="flex-1 rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={loading || !newPatientId.trim()}
+            className="rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-medium text-white disabled:opacity-40 transition-all"
+          >
+            Add Patient
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-nn-navy-light">
+          Patient will share this from Settings → My Care Team
+        </p>
+        {error && (
+          <p className="mt-1 text-xs text-red-500">{error}</p>
+        )}
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-red-500">{error}</p>
-      )}
     </div>
   )
 }
@@ -480,11 +514,14 @@ function PatientCareTeamCard() {
           </div>
           <button
             onClick={handleCopy}
-            className="flex h-auto items-center justify-center rounded-xl bg-nn-deep-blue px-4 py-3 text-xs font-medium text-white hover:bg-nn-deep-blue/90 transition-colors"
+            className="flex h-auto items-center justify-center rounded-xl bg-nn-deep-blue px-4 py-2 text-xs font-medium text-white hover:bg-nn-deep-blue-hover transition-colors"
           >
             {copied ? '✓ Copied!' : 'Copy ID'}
           </button>
         </div>
+        <p className="mt-2 text-xs text-nn-navy-light">
+          Share this ID with your doctor to connect your care team
+        </p>
       </div>
 
       {/* Doctors section */}

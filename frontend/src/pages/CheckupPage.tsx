@@ -242,17 +242,23 @@ export default function CheckupPage() {
                 <div className="space-y-2">
                   <button
                     onClick={startRecording}
-                    className="w-full rounded-xl bg-nn-deep-blue px-6 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-nn-navy-light transition-colors"
+                    className="w-full rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-nn-deep-blue-hover transition-colors"
                   >
                     {todayCheckupComplete ? "View today's results" : 'Begin 60-second scan'}
                   </button>
                   {!todayCheckupComplete && (
-                    <button
-                      onClick={startDemo}
-                      className="w-full rounded-xl border border-nn-periwinkle bg-white px-6 py-2.5 text-xs font-semibold text-nn-deep-blue hover:bg-nn-pale-sky transition-colors"
-                    >
-                      Run demo check-in (no camera required)
-                    </button>
+                    <>
+                      <p className="text-center text-xs text-nn-navy-light">or</p>
+                      <button
+                        onClick={startDemo}
+                        className="w-full rounded-xl border border-nn-periwinkle bg-white px-5 py-2.5 text-xs font-semibold text-nn-deep-blue hover:bg-nn-pale-sky transition-colors"
+                      >
+                        Skip camera — run demo check-in
+                      </button>
+                      <p className="text-center text-[10px] text-nn-navy-light leading-snug">
+                        Demo mode generates sample data without camera access
+                      </p>
+                    </>
                   )}
                 </div>
               )}

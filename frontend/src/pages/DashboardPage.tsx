@@ -53,7 +53,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-full p-6 lg:p-8">
       {/* ── Page header ── */}
-      <header className="fade-up mb-6 flex items-start justify-between">
+      <header className="fade-up mb-5 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-nn-navy flex items-center gap-2">
             {getGreeting()}, {displayName}
@@ -66,23 +66,17 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
             Your daily heart and breathing wellness companion
           </p>
+
+          {/* Mobile mascot health bar */}
+          <div className="lg:hidden mt-2 flex items-center gap-2">
+            <div className="flex-1 h-2 bg-nn-mist rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500" style={{ width: `${mascotHealth}%` }} />
+            </div>
+            <span className="text-xs font-medium text-nn-navy">{mascotHealth}%</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Notification bell */}
-          <button
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm hover:bg-nn-pale-sky transition-colors"
-            aria-label="Notifications"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="#2d3a5e" strokeWidth="1.6" className="h-5 w-5">
-              <path d="M10 2a6 6 0 0 0-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 0 0-6-6Z" strokeLinejoin="round" />
-              <path d="M8 16a2 2 0 0 0 4 0" strokeLinecap="round" />
-            </svg>
-            {!todayCheckupComplete && (
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-nn-pale-sky" />
-            )}
-          </button>
-
           {/* Profile avatar */}
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-nn-deep-blue text-white font-bold text-sm shadow-sm">
             {displayName.charAt(0).toUpperCase()}
@@ -124,7 +118,9 @@ export default function DashboardPage() {
 
         {/* ── Right column (1/3 width on desktop) ── */}
         <div className="space-y-5">
-          <MascotPanel mascotHealth={mascotHealth} />
+          <div className="hidden lg:block">
+            <MascotPanel mascotHealth={mascotHealth} />
+          </div>
           <HealthProfileCard />
         </div>
       </div>

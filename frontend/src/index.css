@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  /* NatalNanny core palette */
-  --color-nn-soft-blue: #c8d9ed;
-  --color-nn-pale-sky: #e1f1fd;
-  --color-nn-periwinkle: #c1d8f0;
-  --color-nn-deep-blue: #4663ac;
-  --color-nn-mist: #d2deeb;
-  --color-nn-navy: #2d3a5e;
-  --color-nn-navy-light: #3d4f7a;
+  /* NatalNanny core palette - Enhanced contrast */
+  --color-nn-soft-blue: #b8d0e8;      /* Slightly deeper for better definition */
+  --color-nn-pale-sky: #e8f3fc;       /* Softer background, better text contrast */
+  --color-nn-periwinkle: #a8c7e8;     /* More saturated for clarity */
+  --color-nn-deep-blue: #3a5299;      /* Darker primary for better contrast */
+  --color-nn-mist: #c8d6e8;           /* More distinct from other blues */
+  --color-nn-navy: #1e2944;           /* Darker primary text (4.5:1+ contrast) */
+  --color-nn-navy-light: #36476b;     /* Darker secondary text (4.5:1+ contrast) */
+  --color-nn-deep-blue-hover: #2d4080; /* Darker hover state for buttons */
 
   /* Remap brand → NatalNanny blues */
   --color-brand-50: #f0f5fb;
-  --color-brand-100: #e1f1fd;
-  --color-brand-200: #c1d8f0;
-  --color-brand-500: #4663ac;
-  --color-brand-600: #3a5599;
-  --color-brand-700: #2d3a5e;
+  --color-brand-100: #e8f3fc;
+  --color-brand-200: #a8c7e8;
+  --color-brand-500: #3a5299;
+  --color-brand-600: #2d4080;
+  --color-brand-700: #1e2944;
 
   /* Typography — Nunito for display/UI, DM Sans for body prose */
   --font-sans:    'Nunito',  'DM Sans', ui-sans-serif, system-ui, sans-serif;
@@ -26,6 +27,17 @@
   /* Rounded corners scale */
   --radius-card: 1.5rem;   /* 24px */
   --radius-btn:  0.75rem;  /* 12px */
+
+  /* Spacing scale (standardized) */
+  --space-card-padding: 1.5rem;      /* 24px - card internal padding */
+  --space-page-padding: 2rem;        /* 32px - page container padding */
+  --space-section-gap: 1.25rem;      /* 20px - gap between cards/sections */
+  --space-element-gap: 0.75rem;      /* 12px - gap within cards */
+
+  /* Button sizing */
+  --btn-padding-primary: 1rem 1.5rem;        /* 16px 24px - main CTAs */
+  --btn-padding-secondary: 0.75rem 1.25rem;  /* 12px 20px - secondary buttons */
+  --btn-padding-small: 0.625rem 1rem;        /* 10px 16px - compact buttons */
 }
 
 /* ── Reset & base ── */

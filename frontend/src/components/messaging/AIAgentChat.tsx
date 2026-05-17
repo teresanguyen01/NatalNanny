@@ -28,10 +28,19 @@ export default function AIAgentChat() {
   return (
     <div className="flex h-full flex-col">
       {/* AI notice banner */}
-      <div className="border-b border-amber-200 bg-amber-50 px-6 py-2">
-        <p className="text-[11px] text-amber-700 text-center">
-          AI replies coming soon — messages are saved. This is not a diagnosis tool.
-        </p>
+      <div className="flex-shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               className="h-4 w-4 text-amber-700 flex-shrink-0" strokeWidth="2">
+            <path d="M8 1 L1 15 h14 L8 1 Z" strokeLinejoin="round" />
+            <path d="M8 6 v4" strokeLinecap="round" />
+            <circle cx="8" cy="12" r="0.5" fill="currentColor" />
+          </svg>
+          <p className="text-xs text-amber-700">
+            <strong>Development mode:</strong> AI responses not yet implemented.
+            Messages are saved but won't receive replies.
+          </p>
+        </div>
       </div>
 
       {/* Chat panel */}
