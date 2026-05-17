@@ -1,8 +1,15 @@
-import type { CheckupResult } from '../types/checkup'
+import type {
+  CheckupResult,
+  StartSessionResponse,
+  TranscribeResponse,
+  FinishSessionPayload,
+} from '../types/checkup'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// Empty string = relative URLs → Vite proxy forwards /api/* to localhost:8000 (no CORS).
+// Set VITE_API_URL in .env for production deployments with an absolute URL.
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
-export const isDemoMode = !API_BASE || API_BASE === ''
+export const isDemoMode = false
 
 function getToken(): string | null {
   return localStorage.getItem('token')
@@ -311,6 +318,35 @@ export const api = {
           signal_quality: signalQuality,
         }),
       }),
+  },
+
+  voiceCheckup: {
+    startSession: () =>
+      fetchApi<StartSessionResponse>('/checkup/start-session', { method: 'POST' }),
+
+    transcribeAnswer: (sessionId: string, questionId: string, audioBlob: Blob) => {
+      const suffix = audioBlob.type.includes('mp4') ? '.mp4' : '.webm'
+      const form = new FormData()
+      form.append('session_id', sessionId)
+      form.append('question_id', questionId)
+      form.append('audio', audioBlob, `answer${suffix}`)
+      return uploadFile<TranscribeResponse>('/checkup/transcribe-answer', form)
+    },
+
+    finishSession: (payload: FinishSessionPayload) =>
+      fetchApi<CheckupResult>('/checkup/finish-session', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    mockVoiceSession: () =>
+      fetchApi<CheckupResult>('/checkup/mock-voice-session', { method: 'POST' }),
+
+    voiceLatest: () =>
+      fetchApi<CheckupResult>('/checkup/voice-latest').catch(() => null),
+
+    voiceHistory: (limit = 30) =>
+      fetchApi<CheckupResult[]>(`/checkup/voice-history?limit=${limit}`).catch(() => [] as CheckupResult[]),
   },
 }
 

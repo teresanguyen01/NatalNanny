@@ -49,14 +49,14 @@ export default function DailyCheckupCTA({ todayCheckupComplete }: DailyCheckupCT
         <img src={hearts} alt="" aria-hidden="true" className="h-10 w-10 rounded-2xl object-cover shadow-sm" />
         <div>
           <p className="font-semibold text-nn-navy">Today's checkup is waiting</p>
-          <p className="text-sm text-nn-navy-light">Takes about 60 seconds</p>
+          <p className="text-sm text-nn-navy-light">Takes about 2 minutes</p>
         </div>
       </div>
       <button
         onClick={() => navigate('/checkup')}
         className="w-full rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-nn-deep-blue-hover transition-colors"
       >
-        Start today's 60-second checkup
+        Start today's 2-minute checkup
       </button>
       <p className="mt-3 text-xs text-nn-navy-light text-center">
         Uses your webcam to estimate heart and breathing signals

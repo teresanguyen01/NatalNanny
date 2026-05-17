@@ -25,8 +25,12 @@ class Settings(BaseSettings):
 
     # JWT secret for signing/verifying auth tokens
     jwt_secret: str = "dev-secret-change-me"
-    # OpenAI — used to issue ephemeral Realtime tokens for the check-up voice agent
+    # OpenAI — transcription (Whisper) and note cleanup (GPT-4o-mini)
     openai_api_key: str = ""
+    # Supabase — direct REST API for checkup session storage
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_checkup_table: str = "checkup_sessions"
     # SQLAlchemy / Alembic — Postgres connection URI (Supabase or local CLI)
     database_url: str = (
         "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"

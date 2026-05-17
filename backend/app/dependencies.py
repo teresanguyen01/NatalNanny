@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from .config import Settings, get_settings
 
 bearer_scheme = HTTPBearer()
+optional_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 class CurrentUser(BaseModel):
@@ -44,3 +45,21 @@ def get_current_user(
         )
 
     return CurrentUser(id=user_id, email=email)
+
+
+def get_optional_user(
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(optional_bearer_scheme)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Optional[CurrentUser]:
+    """Like get_current_user but returns None instead of 401 when no/invalid token."""
+    if credentials is None:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        if user_id and email:
+            return CurrentUser(id=user_id, email=email)
+    except InvalidTokenError:
+        pass
+    return None
