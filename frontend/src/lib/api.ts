@@ -174,6 +174,10 @@ export function removePatient(patientId: string): Promise<void> {
   return fetchApi(`/doctor-patients/${patientId}`, { method: 'DELETE' })
 }
 
+export function listMyDoctors(): Promise<DoctorPatientLink[]> {
+  return fetchApi('/my-doctors')
+}
+
 export function getWebSocketUrl(threadId: string): string {
   const wsBase = API_BASE.replace(/^http/, 'ws')
   return `${wsBase}/ws/messaging/${threadId}`
