@@ -23,12 +23,6 @@ export default function UserSearchModal({ isOpen, onClose, onSelectUser }: UserS
       return
     }
 
-    if (query.length < 2) {
-      setResults([])
-      setError(null)
-      return
-    }
-
     // Clear previous timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
@@ -102,23 +96,17 @@ export default function UserSearchModal({ isOpen, onClose, onSelectUser }: UserS
 
         {/* Results */}
         <div className="max-h-96 overflow-y-auto">
-          {query.length < 2 && (
-            <p className="text-center text-gray-500 py-8">
-              Type at least 2 characters to search
-            </p>
-          )}
-
-          {query.length >= 2 && loading && (
+          {loading && (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nn-deep-blue" />
             </div>
           )}
 
-          {query.length >= 2 && !loading && error && (
+          {!loading && error && (
             <p className="text-center text-red-500 py-8">{error}</p>
           )}
 
-          {query.length >= 2 && !loading && !error && results.length === 0 && (
+          {!loading && !error && results.length === 0 && (
             <p className="text-center text-gray-500 py-8">No users found</p>
           )}
 
