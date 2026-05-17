@@ -19,9 +19,10 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db.session import get_db
-from app.dependencies import CurrentUser, get_current_user
+from app.dependencies import CurrentUser, get_current_user, require_patient_role
 from app.models.checkin import CheckupSession, SessionStatus
-from app.models.user import UserProfile
+from app.models.doctor_patient import ConnectionStatus, DoctorPatient
+from app.models.user import UserProfile, UserRole
 from app.routers.dashboard import _apply_health_decay, _compute_streak, _get_profile
 from app.schemas.checkup import (
     CompleteSessionRequest,
@@ -55,6 +56,7 @@ def _get_session_or_404(db: Session, session_id: uuid.UUID, user_id: str) -> Che
 @router.post("/sessions", response_model=SessionCreated, status_code=status.HTTP_201_CREATED)
 def create_session(user: Auth, db: DB) -> SessionCreated:
     """Start a new checkup session."""
+    require_patient_role(db, user.id)
     session = CheckupSession(
         user_id=uuid.UUID(user.id),
         status=SessionStatus.in_progress,
@@ -72,6 +74,7 @@ def create_session(user: Auth, db: DB) -> SessionCreated:
 @router.get("/sessions", response_model=list[SessionRead])
 def list_sessions(user: Auth, db: DB) -> list[CheckupSession]:
     """List all checkup sessions for the current user, newest first."""
+    require_patient_role(db, user.id)
     return db.execute(
         select(CheckupSession)
         .where(CheckupSession.user_id == user.id)
@@ -81,6 +84,7 @@ def list_sessions(user: Auth, db: DB) -> list[CheckupSession]:
 
 @router.get("/sessions/{session_id}", response_model=SessionRead)
 def get_session(session_id: uuid.UUID, user: Auth, db: DB) -> CheckupSession:
+    require_patient_role(db, user.id)
     return _get_session_or_404(db, session_id, user.id)
 
 
@@ -89,6 +93,7 @@ def get_realtime_token(session_id: uuid.UUID, user: Auth, db: DB, cfg: Cfg) -> R
     """Create an ephemeral OpenAI Realtime token.
     The client uses this token to connect directly to wss://api.openai.com/v1/realtime.
     """
+    require_patient_role(db, user.id)
     _get_session_or_404(db, session_id, user.id)
 
     if not cfg.openai_api_key:
@@ -135,6 +140,7 @@ def submit_rppg_data(
     """Accept rPPG signal data from the frontend.
     TODO: wire to signal-processing service once rPPG pipeline is scoped.
     """
+    require_patient_role(db, user.id)
     session = _get_session_or_404(db, session_id, user.id)
     session.rppg_raw = payload.data
     db.commit()
@@ -151,6 +157,7 @@ def complete_session(
       3. Update streak tracking
       4. Return updated summary fields for optimistic dashboard refresh
     """
+    require_patient_role(db, user.id)
     session = _get_session_or_404(db, session_id, user.id)
 
     if session.status == SessionStatus.completed:
@@ -194,3 +201,37 @@ def complete_session(
         streak=current_streak,
         longest_streak=profile.longest_streak,
     )
+
+
+@router.get("/sessions/patient/{patient_id}", response_model=list[SessionRead])
+def get_patient_sessions(patient_id: uuid.UUID, user: Auth, db: DB) -> list[CheckupSession]:
+    """List all checkup sessions for a connected patient (doctor access only)."""
+    # Verify current user is a doctor
+    doctor_profile = db.get(UserProfile, uuid.UUID(user.id))
+    if doctor_profile is None or doctor_profile.role != UserRole.doctor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This action is only available to doctors.",
+        )
+
+    # Verify accepted connection exists
+    connection = db.execute(
+        select(DoctorPatient).where(
+            DoctorPatient.doctor_id == uuid.UUID(user.id),
+            DoctorPatient.patient_id == patient_id,
+            DoctorPatient.status == ConnectionStatus.accepted,
+        )
+    ).scalar_one_or_none()
+
+    if connection is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No accepted connection with this patient.",
+        )
+
+    # Return patient's sessions, newest first
+    return db.execute(
+        select(CheckupSession)
+        .where(CheckupSession.user_id == patient_id)
+        .order_by(CheckupSession.started_at.desc())
+    ).scalars().all()

@@ -181,6 +181,31 @@ export interface DashboardSummary {
   checkin_dates: CheckinDateData[]
 }
 
+export interface DoctorDashboardSummary {
+  total_patients: number
+  patients_with_recent_checkups: number
+  patients_with_missed_checkups: number
+  patients_with_urgent_symptoms: number
+}
+
+export interface CheckupSession {
+  id: string
+  user_id: string
+  status: string
+  started_at: string
+  completed_at: string | null
+  brownie_points: number
+  stats: any
+  rppg_raw: any
+}
+
+export interface HealthRecord {
+  user_id: string
+  data: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
 // ── API Functions ────────────────────────────────────────────────────────────
 
 export function getProfile(): Promise<UserProfile> {
@@ -250,6 +275,30 @@ export function removePatient(patientId: string): Promise<void> {
 
 export function listMyDoctors(): Promise<DoctorPatientLink[]> {
   return fetchApi('/my-doctors')
+}
+
+// Doctor dashboard and patient data access
+export function getDoctorDashboardSummary(): Promise<DoctorDashboardSummary> {
+  return fetchApi('/doctor/dashboard-summary')
+}
+
+export function getUserProfile(userId: string): Promise<UserProfile> {
+  return fetchApi(`/users/${userId}/profile`)
+}
+
+export function getUserHealthRecord(userId: string): Promise<HealthRecord> {
+  return fetchApi(`/users/${userId}/health-record`)
+}
+
+export function updateUserHealthRecord(userId: string, data: Record<string, any>): Promise<HealthRecord> {
+  return fetchApi(`/users/${userId}/health-record`, {
+    method: 'PATCH',
+    body: JSON.stringify({ data }),
+  })
+}
+
+export function getPatientCheckupSessions(patientId: string): Promise<CheckupSession[]> {
+  return fetchApi(`/checkup/sessions/patient/${patientId}`)
 }
 
 export function getWebSocketUrl(threadId: string): string {

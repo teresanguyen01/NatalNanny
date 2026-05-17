@@ -1,24 +1,33 @@
 """Doctor-patient relationship management endpoints."""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
-from datetime import datetime, timezone
-
+from app.models.checkin import CheckupSession, SessionStatus
 from app.models.doctor_patient import ConnectionStatus, DoctorPatient
-from app.models.user import UserProfile, UserRole
+from app.models.user import HealthRecord, UserProfile, UserRole
 from app.schemas.user import ConnectionRequestCreate, ConnectionWithStatus, DoctorPatientCreate, DoctorPatientRead
 
 router = APIRouter(tags=["doctor-patients"])
 
 Auth = Annotated[CurrentUser, Depends(get_current_user)]
 DB = Annotated[Session, Depends(get_db)]
+
+
+class DoctorDashboardSummary(BaseModel):
+    """Aggregate metrics for doctor dashboard."""
+    total_patients: int
+    patients_with_recent_checkups: int  # Last 7 days
+    patients_with_missed_checkups: int  # >3 days
+    patients_with_urgent_symptoms: int
 
 
 def _require_role(db: Session, user_id: str, required: UserRole) -> UserProfile:
@@ -40,6 +49,70 @@ def _get_profile_with_role(db: Session, user_id: str) -> UserProfile:
             detail="You must select a role before managing connections.",
         )
     return profile
+
+
+@router.get("/doctor/dashboard-summary", response_model=DoctorDashboardSummary)
+def get_doctor_dashboard_summary(user: Auth, db: DB) -> DoctorDashboardSummary:
+    """Get aggregate metrics for doctor dashboard."""
+    _require_role(db, user.id, UserRole.doctor)
+
+    # Get all accepted patient IDs
+    patient_connections = db.execute(
+        select(DoctorPatient.patient_id).where(
+            DoctorPatient.doctor_id == uuid.UUID(user.id),
+            DoctorPatient.status == ConnectionStatus.accepted,
+        )
+    ).scalars().all()
+
+    patient_ids = list(patient_connections)
+    total_patients = len(patient_ids)
+
+    if total_patients == 0:
+        return DoctorDashboardSummary(
+            total_patients=0,
+            patients_with_recent_checkups=0,
+            patients_with_missed_checkups=0,
+            patients_with_urgent_symptoms=0,
+        )
+
+    # Patients with recent checkups (last 7 days)
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent_checkup_patient_ids = db.execute(
+        select(CheckupSession.user_id)
+        .where(
+            CheckupSession.user_id.in_(patient_ids),
+            CheckupSession.started_at >= seven_days_ago,
+            CheckupSession.status == SessionStatus.completed,
+        )
+        .distinct()
+    ).scalars().all()
+    patients_with_recent_checkups = len(list(recent_checkup_patient_ids))
+
+    # Patients with missed checkups (>3 days since last checkup)
+    three_days_ago = datetime.now(timezone.utc) - timedelta(days=3)
+    # Find patients who have NO checkups in the last 3 days
+    recent_active_patient_ids = db.execute(
+        select(CheckupSession.user_id)
+        .where(
+            CheckupSession.user_id.in_(patient_ids),
+            CheckupSession.started_at >= three_days_ago,
+        )
+        .distinct()
+    ).scalars().all()
+    patients_with_missed_checkups = total_patients - len(list(recent_active_patient_ids))
+
+    # Patients with urgent symptoms flagged (stub - would check health records or voice check-in data)
+    # For now, check if any health records have flagged urgent symptoms
+    patients_with_urgent_symptoms = 0
+    # This would require checking voice check-in results stored in health records or separate table
+    # Leaving as 0 for MVP since urgent symptom tracking structure isn't fully defined yet
+
+    return DoctorDashboardSummary(
+        total_patients=total_patients,
+        patients_with_recent_checkups=patients_with_recent_checkups,
+        patients_with_missed_checkups=patients_with_missed_checkups,
+        patients_with_urgent_symptoms=patients_with_urgent_symptoms,
+    )
 
 
 @router.get("/doctor-patients", response_model=list[DoctorPatientRead])

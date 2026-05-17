@@ -86,18 +86,44 @@ function IconShield() {
     </svg>
   );
 }
-
-const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", Icon: IconGrid },
-  { to: "/messaging", label: "Messaging", Icon: IconMessage },
-  { to: "/checkup", label: "Checkup", Icon: IconHeart },
-  { to: "/settings", label: "Settings", Icon: IconSettings },
-];
+function IconUsers() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      className="h-5 w-5"
+    >
+      <circle cx="7" cy="6" r="3" />
+      <circle cx="14" cy="8" r="2.5" />
+      <path
+        d="M2 17v-2a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v2M12 17v-1.5a3.5 3.5 0 0 1 3.5-3.5h0a3.5 3.5 0 0 1 3.5 3.5V17"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export default function Sidebar() {
-  const { displayName, signOut } = useAuth();
+  const { displayName, signOut, role } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Role-based navigation items
+  const navItems = role === "doctor"
+    ? [
+        { to: "/dashboard", label: "Dashboard", Icon: IconGrid },
+        { to: "/messaging", label: "Messaging", Icon: IconMessage },
+        { to: "/patients", label: "Patients", Icon: IconUsers },
+        { to: "/settings", label: "Settings", Icon: IconSettings },
+      ]
+    : [
+        { to: "/dashboard", label: "Dashboard", Icon: IconGrid },
+        { to: "/messaging", label: "Messaging", Icon: IconMessage },
+        { to: "/checkup", label: "Checkup", Icon: IconHeart },
+        { to: "/settings", label: "Settings", Icon: IconSettings },
+      ];
 
   return (
     <>
@@ -150,7 +176,7 @@ export default function Sidebar() {
 
         {/* Nav items */}
         <nav className="flex-1 space-y-1 px-3">
-          {NAV_ITEMS.map(({ to, label, Icon }) => (
+          {navItems.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
               to={to}

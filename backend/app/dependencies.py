@@ -1,9 +1,11 @@
 from typing import Annotated, Optional
+import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 
 bearer_scheme = HTTPBearer()
@@ -63,3 +65,15 @@ def get_optional_user(
     except InvalidTokenError:
         pass
     return None
+
+
+def require_patient_role(db: Session, user_id: str) -> None:
+    """Verify the user has the patient role. Raises 403 if doctor or no role set."""
+    from .models.user import UserProfile, UserRole
+
+    profile = db.get(UserProfile, uuid.UUID(user_id))
+    if profile is None or profile.role != UserRole.patient:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This action is only available to patients.",
+        )
