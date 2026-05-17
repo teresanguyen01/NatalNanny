@@ -18,7 +18,7 @@ function getStreakColor(streak: number): string {
   if (streak === 3) return 'bg-green-400'        // Light green
   if (streak === 4) return 'bg-green-500'        // Green
   if (streak === 5) return 'bg-emerald-500'      // Emerald
-  return 'bg-amber-400'                           // Gold for 6+
+  return 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 shadow-lg'  // Shiny gold for 6+
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -190,15 +190,15 @@ export default function CalendarCheckupCard({
           </p>
         </div>
         {/* Legend */}
-        <div className="flex flex-col gap-1.5 text-right text-[11px] text-nn-navy-light">
-          <span className="flex items-center justify-end gap-1.5">
+        <div className="flex flex-col gap-1.5 text-left text-[11px] text-nn-navy-light">
+          <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-full bg-yellow-400 inline-block" /> Streak 1
           </span>
-          <span className="flex items-center justify-end gap-1.5">
+          <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-full bg-green-400 inline-block" /> Streak 2-5
           </span>
-          <span className="flex items-center justify-end gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-amber-400 inline-block" /> Streak 6+
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 shadow-md inline-block" /> Streak 6+
           </span>
         </div>
       </div>
