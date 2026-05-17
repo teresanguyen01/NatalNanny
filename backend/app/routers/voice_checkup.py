@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db.session import get_db
-from app.dependencies import CurrentUser, get_optional_user
+from app.dependencies import CurrentUser, get_current_user, require_patient_role
 from app.models.user import HealthRecord, UserProfile
 from rppg import storage
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["voice-checkup"])
 
 Cfg = Annotated[Settings, Depends(get_settings)]
-OptUser = Annotated[Optional[CurrentUser], Depends(get_optional_user)]
+Auth = Annotated[CurrentUser, Depends(get_current_user)]
 DB = Annotated[Session, Depends(get_db)]
 
 OPENAI_MODEL = "gpt-4o-mini"
@@ -507,14 +507,15 @@ class FinishSessionRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/checkup/start-session")
-async def start_session(cfg: Cfg, current_user: OptUser, db: DB) -> dict:
+async def start_session(cfg: Cfg, current_user: Auth, db: DB) -> dict:
     """Create an in-memory voice session with AI-personalized questions."""
+    require_patient_role(db, current_user.id)
     sid = _session_id()
-    user_id = current_user.id if current_user else None
+    user_id = current_user.id
 
     # Build context from real DB + history, then let GPT pick the best questions
     user_ctx = get_user_context_for_session(user_id, db)
-    if cfg.openai_api_key and user_id:
+    if cfg.openai_api_key:
         questions = await _generate_personalized_questions(user_ctx, cfg.openai_api_key)
     else:
         questions = DEFAULT_QUESTIONS
@@ -539,18 +540,20 @@ async def start_session(cfg: Cfg, current_user: OptUser, db: DB) -> dict:
 @router.post("/checkup/transcribe-answer")
 async def transcribe_answer(
     cfg: Cfg,
-    current_user: OptUser,
+    current_user: Auth,
+    db: DB,
     session_id: str = Form(...),
     question_id: str = Form(...),
     audio: UploadFile = File(...),
 ) -> dict:
     """Transcribe one spoken answer with OpenAI Whisper and store it in the session."""
+    require_patient_role(db, current_user.id)
     session = _SESSIONS.get(session_id)
     if session is None:
         # Session expired or server restarted — create stub with default questions
         session = {
             "session_id": session_id,
-            "user_id": current_user.id if current_user else None,
+            "user_id": current_user.id,
             "questions": DEFAULT_QUESTIONS,
             "answers": [],
             "started_at": _now_iso(),
@@ -609,17 +612,15 @@ async def transcribe_answer(
 
 
 @router.post("/checkup/finish-session")
-async def finish_session(payload: FinishSessionRequest, cfg: Cfg, current_user: OptUser, db: DB) -> dict:
+async def finish_session(payload: FinishSessionRequest, cfg: Cfg, current_user: Auth, db: DB) -> dict:
     """
     Clean up voice notes with AI, merge with rPPG result, save locally + Supabase.
     """
+    require_patient_role(db, current_user.id)
     session = _SESSIONS.get(payload.session_id, {})
 
-    # Resolve user_id: JWT > session store > None
-    user_id: Optional[str] = (
-        (current_user.id if current_user else None)
-        or session.get("user_id")
-    )
+    # Resolve user_id: JWT > session store
+    user_id: str = current_user.id or session.get("user_id", "")
 
     # Use answers from payload (authoritative) or from in-memory session
     answers: list[dict] = (
@@ -698,7 +699,8 @@ async def finish_session(payload: FinishSessionRequest, cfg: Cfg, current_user: 
 
 
 @router.get("/checkup/voice-latest")
-async def get_voice_latest() -> dict:
+async def get_voice_latest(current_user: Auth, db: DB) -> dict:
+    require_patient_role(db, current_user.id)
     result = storage.get_latest_voice_result()
     if result is None:
         raise HTTPException(status_code=404, detail="No voice check-in results found")
@@ -706,13 +708,15 @@ async def get_voice_latest() -> dict:
 
 
 @router.get("/checkup/voice-history")
-async def get_voice_history(limit: int = 30) -> list:
+async def get_voice_history(current_user: Auth, db: DB, limit: int = 30) -> list:
+    require_patient_role(db, current_user.id)
     return storage.get_voice_history(limit=limit)
 
 
 @router.post("/checkup/mock-voice-session")
-async def mock_voice_session() -> dict:
+async def mock_voice_session(current_user: Auth, db: DB) -> dict:
     """Return a realistic combined mock session — no camera or OpenAI required."""
+    require_patient_role(db, current_user.id)
     sid = "mock_voice_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     result = _build_mock_voice_session(sid)
     storage.save_checkup_result(result)
