@@ -3,14 +3,18 @@ import { useAppContext } from '../contexts/AppContext'
 import ResultsSummary from '../components/results/ResultsSummary'
 import AISummaryCard from '../components/results/AISummaryCard'
 import SafetyNotice from '../components/checkup/SafetyNotice'
+import VoiceCheckinResultCard from '../components/results/VoiceCheckinResultCard'
+import type { SessionStorage } from '../types/checkup'
 
 export default function CheckupResultsPage() {
   const navigate = useNavigate()
-  const { todayCheckupComplete } = useAppContext()
+  const { todayCheckupComplete, checkupResult } = useAppContext()
+  const hasVoice = !!checkupResult?.voice_checkin
 
   return (
     <div className="min-h-full p-6 lg:p-8">
       <div className="mx-auto max-w-2xl">
+
         {/* Header */}
         <div className="fade-up mb-6 flex items-center gap-4">
           <button
@@ -25,7 +29,9 @@ export default function CheckupResultsPage() {
           <div>
             <h1 className="text-2xl font-bold text-nn-navy">Checkup Results</h1>
             <p className="text-sm text-nn-navy-light">
-              {todayCheckupComplete ? "Today's wellness checkup is complete" : "Latest checkup results"}
+              {todayCheckupComplete
+                ? hasVoice ? "Today's voice + camera check-in is complete" : "Today's wellness checkup is complete"
+                : 'Latest checkup results'}
             </p>
           </div>
         </div>
@@ -39,30 +45,44 @@ export default function CheckupResultsPage() {
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-emerald-800">Checkup complete!</p>
+              <p className="font-semibold text-emerald-800">Check-in complete!</p>
               <p className="text-sm text-emerald-600">Your streak has been updated. Keep it up!</p>
             </div>
           </div>
         )}
 
         <div className="space-y-5">
-          {/* Results summary */}
+          {/* rPPG stats */}
           <div className="fade-up fade-up-2">
             <ResultsSummary />
           </div>
 
-          {/* AI summary */}
-          <div className="fade-up fade-up-3">
+          {/* Voice check-in notes */}
+          {hasVoice && (
+            <div className="fade-up fade-up-3">
+              <VoiceCheckinResultCard result={checkupResult!} />
+            </div>
+          )}
+
+          {/* AI / session summary */}
+          <div className="fade-up fade-up-4">
             <AISummaryCard />
           </div>
 
+          {/* Storage status */}
+          {checkupResult?.storage && (
+            <div className="fade-up fade-up-5">
+              <StorageStatusCard storage={checkupResult.storage} />
+            </div>
+          )}
+
           {/* Safety notice */}
-          <div className="fade-up fade-up-4">
+          <div className="fade-up fade-up-6">
             <SafetyNotice />
           </div>
 
           {/* Action buttons */}
-          <div className="fade-up fade-up-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="fade-up fade-up-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button
               onClick={() => navigate('/dashboard')}
               className="rounded-xl border border-nn-mist bg-white px-5 py-3 text-sm font-semibold text-nn-navy hover:bg-nn-pale-sky transition-colors"
@@ -73,7 +93,7 @@ export default function CheckupResultsPage() {
               onClick={() => navigate('/messaging?tab=doctor')}
               className="rounded-xl bg-nn-deep-blue px-5 py-3 text-sm font-semibold text-white hover:bg-nn-navy-light transition-colors"
             >
-              Message Dr. Rivera
+              Message Your Doctor
             </button>
             <button
               onClick={() => navigate('/messaging?tab=ai')}
@@ -84,6 +104,33 @@ export default function CheckupResultsPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function StorageStatusCard({ storage }: { storage: SessionStorage }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm border border-nn-mist">
+      <p className="text-xs font-semibold text-nn-navy mb-2">Session saved</p>
+      <div className="flex gap-3 flex-wrap">
+        <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ${
+          storage.saved_local_json ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+        }`}>
+          {storage.saved_local_json ? '✓' : '✗'} Saved locally
+        </span>
+        <span className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold ${
+          storage.saved_supabase ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+        }`}>
+          {storage.saved_supabase ? '✓' : '!'} {storage.saved_supabase ? 'Synced to cloud' : 'Cloud sync pending'}
+        </span>
+      </div>
+      {storage.supabase_error && !storage.saved_supabase && (
+        <p className="mt-2 text-[10px] text-amber-700" style={{ fontFamily: 'var(--font-body)' }}>
+          {storage.supabase_error.includes('not configured')
+            ? 'Supabase not configured — saved locally only.'
+            : `Supabase sync failed. ${storage.supabase_error}`}
+        </p>
+      )}
     </div>
   )
 }

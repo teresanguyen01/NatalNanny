@@ -76,7 +76,7 @@ def main():
     if not cap.isOpened():
         raise RuntimeError("Could not open webcam.")
 
-    target_seconds = 60
+    target_seconds = 120
     target_fps = 30
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
@@ -89,7 +89,7 @@ def main():
     green_signal = []
     timestamps = []
 
-    print("Recording 60-second rPPG clip.")
+    print("Recording 120-second rPPG clip.")
     print("Sit still, face the camera, use good lighting, and breathe normally.")
 
     start = time.time()

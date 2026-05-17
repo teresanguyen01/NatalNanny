@@ -1,3 +1,89 @@
+// ── Voice check-in types ──────────────────────────────────────────────────────
+
+export interface VoiceCheckinQuestion {
+  id: string
+  question: string
+  raw_transcript: string
+  cleaned_answer: string
+}
+
+export interface SymptomReport {
+  shortness_of_breath: boolean
+  chest_pain: boolean
+  dizziness: boolean
+  severe_headache: boolean
+  vision_changes: boolean
+  heavy_bleeding: boolean
+  reduced_fetal_movement: boolean
+  fever_or_chills: boolean
+  mood_concern: boolean
+}
+
+export interface VoiceCheckin {
+  questions_asked: VoiceCheckinQuestion[]
+  raw_full_transcript: string
+  cleaned_note: string
+  symptoms_reported: SymptomReport
+  possible_context_for_metrics: string[]
+  care_team_summary: string
+  suggested_next_step: string
+  requires_urgent_notice: boolean
+  urgent_notice_reason: string | null
+  ai_cleanup_skipped?: boolean
+  ai_cleanup_reason?: string
+}
+
+export interface SessionNotesForUser {
+  title: string
+  summary: string
+  cleaned_note: string
+  care_team_summary: string
+}
+
+export interface SessionStorage {
+  saved_local_json: boolean
+  local_json_path: string
+  saved_supabase: boolean
+  supabase_table: string
+  supabase_error?: string
+  local_save_error?: string
+}
+
+// ── Start-session response ────────────────────────────────────────────────────
+
+export interface VoiceQuestion {
+  id: string
+  question: string
+}
+
+export interface StartSessionResponse {
+  session_id: string
+  status: string
+  max_duration_seconds: number
+  questions: VoiceQuestion[]
+}
+
+export interface TranscribeResponse {
+  question_id: string
+  transcript: string
+  next_question: VoiceQuestion | null
+  questions_remaining: number
+  all_questions_answered: boolean
+  transcription_error?: string
+}
+
+export interface FinishSessionPayload {
+  session_id: string
+  rppg_result?: unknown
+  duration_seconds?: number
+  completed_reason?: string
+  answers?: Array<{
+    question_id: string
+    question: string
+    raw_transcript: string
+  }>
+}
+
 // ── Legacy / backward-compat types ───────────────────────────────────────────
 export type SignalQualityLabel = 'good' | 'medium' | 'low'
 export type MethodAgreementLabel = 'good' | 'moderate' | 'poor' | 'insufficient'
@@ -155,6 +241,14 @@ export interface CheckupResult {
     pulse_wave_velocity: boolean
   }
   medical_notice?: string
+
+  // Voice check-in overlay (present when session was a voice+rPPG session)
+  voice_checkin?: VoiceCheckin
+  session_notes_for_user?: SessionNotesForUser
+  storage?: SessionStorage
+  duration_seconds?: number
+  completed_reason?: string
+  _is_mock?: boolean
 
   // Legacy compat fields (always present)
   recording: {

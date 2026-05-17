@@ -39,7 +39,7 @@ export const mockCheckupResult = {
   heartRate: 91,
   respiratoryRate: 18,
   signalQuality: 'Good' as const,
-  recordingLengthSeconds: 60,
+  recordingLengthSeconds: 120,
   method: 'rPPG webcam analysis',
   lightingNote: 'Good lighting detected',
   motionNote: 'Minimal motion — clean signal',

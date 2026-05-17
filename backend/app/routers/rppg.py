@@ -65,11 +65,11 @@ def _make_full_result(
 
     quality_snr = {"good": 0.52, "medium": 0.31, "low": 0.14}.get(sig_q, 0.31)
     fps = 22.0
-    duration = 60.0
+    duration = 120.0
     frame_count = int(fps * duration)
 
     # Windowed HR values — 6 windows around consensus
-    window_values = [round(consensus_hr + random.uniform(-4, 4), 1) for _ in range(6)]
+    window_values = [round(consensus_hr + random.uniform(-4, 4), 1) for _ in range(12)]
     window_arr = window_values
     spread = max(window_arr) - min(window_arr)
     hr_trend = "stable" if spread <= 10 else "variable"
@@ -104,7 +104,7 @@ def _make_full_result(
     qual_score = (
         (2 if agreement_quality == "good" else (1 if agreement_quality == "medium" else 0))
         + (2 if quality_snr >= 0.4 else (1 if quality_snr >= 0.2 else 0))
-        + 2  # full 60s duration
+        + 2  # full 120s duration
     )
     overall_quality = sig_q  # honour the requested quality for demo
 
