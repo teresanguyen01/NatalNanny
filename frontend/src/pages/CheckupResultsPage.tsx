@@ -65,19 +65,19 @@ export default function CheckupResultsPage() {
           <div className="fade-up fade-up-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button
               onClick={() => navigate('/dashboard')}
-              className="rounded-xl border border-nn-mist bg-white px-5 py-3 text-sm font-semibold text-nn-navy hover:bg-nn-pale-sky transition-colors"
+              className="rounded-xl border border-nn-mist bg-white px-5 py-2.5 text-sm font-semibold text-nn-navy hover:bg-nn-pale-sky transition-colors"
             >
               ← Back to Dashboard
             </button>
             <button
               onClick={() => navigate('/messaging?tab=doctor')}
-              className="rounded-xl bg-nn-deep-blue px-5 py-3 text-sm font-semibold text-white hover:bg-nn-navy-light transition-colors"
+              className="rounded-xl bg-nn-deep-blue px-6 py-3 text-sm font-semibold text-white hover:bg-nn-deep-blue-hover transition-colors"
             >
               Message Dr. Rivera
             </button>
             <button
               onClick={() => navigate('/messaging?tab=ai')}
-              className="rounded-xl bg-nn-periwinkle px-5 py-3 text-sm font-semibold text-nn-navy hover:bg-nn-soft-blue transition-colors"
+              className="rounded-xl bg-nn-periwinkle px-5 py-2.5 text-sm font-semibold text-nn-navy hover:bg-nn-soft-blue transition-colors"
             >
               Ask NatalNanny AI
             </button>

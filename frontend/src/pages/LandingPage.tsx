@@ -18,7 +18,7 @@ export default function LandingPage() {
         </div>
         <Link
           to="/dashboard"
-          className="rounded-xl bg-nn-deep-blue px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-nn-navy-light transition-colors"
+          className="rounded-xl bg-nn-deep-blue px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-nn-deep-blue-hover transition-colors"
         >
           Open app
         </Link>
@@ -48,7 +48,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               to="/dashboard"
-              className="rounded-xl bg-nn-deep-blue px-8 py-4 text-base font-semibold text-white shadow-sm hover:bg-nn-navy-light transition-colors"
+              className="rounded-xl bg-nn-deep-blue px-8 py-4 text-base font-semibold text-white shadow-sm hover:bg-nn-deep-blue-hover transition-colors"
             >
               Try the demo
             </Link>

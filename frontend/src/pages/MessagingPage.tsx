@@ -99,7 +99,7 @@ export default function MessagingPage() {
                 key={contact.id}
                 onClick={() => selectContact(contact)}
                 className={[
-                  'group flex w-full items-start gap-3.5 rounded-2xl p-3.5 text-left transition-all',
+                  'group flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition-all',
                   isActive
                     ? 'bg-nn-pale-sky shadow-sm border border-nn-periwinkle/60'
                     : 'hover:bg-nn-pale-sky/60',
