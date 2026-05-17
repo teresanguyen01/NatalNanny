@@ -1,4 +1,5 @@
 import { mockUser } from '../../data/mockData'
+import happyCappy from '../../assets/happy_cappy.PNG'
 
 export default function HealthProfileCard() {
   const weeksLeft = Math.round(
@@ -9,12 +10,7 @@ export default function HealthProfileCard() {
   return (
     <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-nn-pale-sky">
-          <svg viewBox="0 0 20 20" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-4 w-4">
-            <circle cx="10" cy="6" r="3" />
-            <path d="M3 18a7 7 0 0 1 14 0" strokeLinecap="round" />
-          </svg>
-        </div>
+        <img src={happyCappy} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
         <h2 className="font-semibold text-nn-navy">Health Profile</h2>
       </div>
 

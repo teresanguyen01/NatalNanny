@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
-import { today } from '../data/mockData'
+import { today, mockStreak } from '../data/mockData'
+import { api } from '../lib/api'
+import happyCappy from '../assets/happy_cappy.PNG'
 import StreakCard from '../components/dashboard/StreakCard'
 import CalendarCheckupCard from '../components/dashboard/CalendarCheckupCard'
 import DailyCheckupCTA from '../components/dashboard/DailyCheckupCTA'
@@ -17,15 +20,51 @@ function getGreeting() {
 
 export default function DashboardPage() {
   const { displayName } = useAuth()
-  const { todayCheckupComplete, streakCount, completedDates, vitals } = useAppContext()
+  const {
+    todayCheckupComplete, streakCount, completedDates, vitals,
+    checkupResult, resultsByDate, setCheckupResult, addResultForDate,
+  } = useAppContext()
+
+  useEffect(() => {
+    // Fetch latest for dashboard metrics display
+    api.checkup.latest().then(setCheckupResult).catch(() => {})
+
+    // Fetch history so calendar day-clicks can show past results
+    api.checkup.history(60).then(history => {
+      history.forEach(r => addResultForDate(r.created_at.substring(0, 10), r))
+    }).catch(() => {})
+  }, [setCheckupResult, addResultForDate])
+
+  const daysSinceLastCheckin = Math.floor(
+    (new Date(today).getTime() - new Date(mockStreak.lastCheckupDate).getTime()) /
+    (1000 * 60 * 60 * 24)
+  )
+
+  // Derive real values from latest checkup when available, fall back to mock vitals
+  const liveHR = checkupResult?.checkup_summary?.estimated_pulse_bpm
+    ?? checkupResult?.rppg_analysis?.consensus?.estimated_pulse_bpm
+    ?? vitals.heartRate
+  const liveSignalQuality = checkupResult?.signal_quality?.overall
+    ?? checkupResult?.rppg_analysis?.signal_quality?.label
+    ?? vitals.signalQuality.toLowerCase()
+  const liveTrend = checkupResult?.heart_rate_statistics?.trend
+    ?? (checkupResult?.rppg_analysis?.check_in_trend as string | undefined)
+    ?? vitals.trend
+  const liveWellnessScore = checkupResult?.maternal_wellness_interpretation?.wellness_score
+    ?? checkupResult?.rppg_analysis?.signal_quality?.wellness_score
 
   return (
     <div className="min-h-full p-6 lg:p-8">
       {/* ── Page header ── */}
       <header className="fade-up mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-nn-navy">
-            {getGreeting()}, {displayName} 👋
+          <h1 className="text-2xl font-bold text-nn-navy flex items-center gap-2">
+            {getGreeting()}, {displayName}
+            <img
+              src={happyCappy}
+              alt="Sam the capybara waving hello"
+              className="h-8 w-8 object-contain inline-block"
+            />
           </h1>
           <p className="mt-1 text-sm text-nn-navy-light" style={{ fontFamily: 'var(--font-body)' }}>
             Your daily heart and breathing wellness companion
@@ -66,21 +105,25 @@ export default function DashboardPage() {
           </div>
 
           {/* Calendar */}
-          <CalendarCheckupCard completedDates={completedDates} today={today} />
+          <CalendarCheckupCard
+            completedDates={completedDates}
+            today={today}
+            resultsByDate={resultsByDate}
+          />
 
           {/* Metrics */}
           <MetricsSummaryCards
-            heartRate={vitals.heartRate}
-            respiratoryRate={vitals.respiratoryRate}
-            signalQuality={vitals.signalQuality}
-            trend={vitals.trend}
+            heartRate={typeof liveHR === 'number' ? Math.round(liveHR) : vitals.heartRate}
+            signalQuality={liveSignalQuality}
+            trend={typeof liveTrend === 'string' ? (liveTrend.charAt(0).toUpperCase() + liveTrend.slice(1)) : vitals.trend}
             weeklyCompletion={vitals.weeklyCompletion}
+            wellnessScore={liveWellnessScore ?? undefined}
           />
         </div>
 
         {/* ── Right column (1/3 width on desktop) ── */}
         <div className="space-y-5">
-          <MascotPanel />
+          <MascotPanel streakCount={streakCount} daysSinceLastCheckin={daysSinceLastCheckin} />
           <HealthProfileCard />
         </div>
       </div>

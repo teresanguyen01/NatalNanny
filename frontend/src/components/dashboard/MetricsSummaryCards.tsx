@@ -1,11 +1,15 @@
 import { mockTrendData } from '../../data/mockData'
+import measureHeartCappy from '../../assets/measure_heart_cappy.png'
+import signalCappy from '../../assets/signal_cappy.png'
+import weeklyCappy from '../../assets/weekly_cappy.png'
+import wellnessCappy from '../../assets/wellness_cappy.png'
 
 interface MetricsProps {
   heartRate: number
-  respiratoryRate: number
   signalQuality: string
   trend: string
   weeklyCompletion: number
+  wellnessScore?: number
 }
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -26,57 +30,62 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   )
 }
 
+function qualityColor(label: string) {
+  const l = label.toLowerCase()
+  if (l === 'good') return 'text-emerald-600'
+  if (l === 'medium') return 'text-amber-600'
+  return 'text-red-500'
+}
+
 export default function MetricsSummaryCards({
   heartRate,
-  respiratoryRate,
+  signalQuality,
   trend,
   weeklyCompletion,
+  wellnessScore,
 }: MetricsProps) {
   const hrData = mockTrendData.map((d) => d.heartRate)
-  const rrData = mockTrendData.map((d) => d.respiratoryRate)
 
   const cards = [
     {
-      label: 'Heart Rate',
+      label: 'Estimated Pulse',
       value: `${heartRate}`,
       unit: 'bpm',
-      sub: 'Estimated from rPPG',
+      sub: 'Camera-based wellness signal',
       sparkData: hrData,
       sparkColor: '#4663ac',
-      icon: (
-        <svg viewBox="0 0 20 20" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-5 w-5">
-          <path d="M10 17S2 11.5 2 7a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 18 7c0 4.5-8 10-8 10Z" />
-        </svg>
-      ),
+      iconImg: measureHeartCappy,
+      iconAlt: 'Sam measuring your pulse',
     },
     {
-      label: 'Respiratory Rate',
-      value: `${respiratoryRate}`,
-      unit: 'br/min',
-      sub: 'Estimated from rPPG',
-      sparkData: rrData,
-      sparkColor: '#6ea8d8',
-      icon: (
-        <svg viewBox="0 0 20 20" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-5 w-5">
-          <path d="M5 10a5 5 0 0 1 10 0" strokeLinecap="round" />
-          <path d="M3 13a7 7 0 0 1 14 0" strokeLinecap="round" />
-          <path d="M1 16a9 9 0 0 1 18 0" strokeLinecap="round" />
-        </svg>
+      label: 'Signal Quality',
+      value: signalQuality.charAt(0).toUpperCase() + signalQuality.slice(1),
+      unit: '',
+      sub: 'rPPG camera signal',
+      sparkData: null,
+      sparkColor: null,
+      iconImg: signalCappy,
+      iconAlt: 'Sam checking the camera signal',
+      badge: (
+        <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+          signalQuality.toLowerCase() === 'good' ? 'bg-emerald-100 text-emerald-700' :
+          signalQuality.toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' :
+          'bg-red-100 text-red-700'
+        }`}>
+          ● {signalQuality.charAt(0).toUpperCase() + signalQuality.slice(1)}
+        </span>
       ),
+      valueColor: qualityColor(signalQuality),
     },
     {
       label: 'Weekly Completion',
       value: `${weeklyCompletion}`,
       unit: '%',
-      sub: '6 of 7 checkups done',
+      sub: 'Check-ins this week',
       sparkData: null,
       sparkColor: null,
-      icon: (
-        <svg viewBox="0 0 20 20" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-5 w-5">
-          <rect x="2" y="4" width="16" height="14" rx="2" />
-          <path d="M6 2v4M14 2v4M2 9h16" strokeLinecap="round" />
-        </svg>
-      ),
+      iconImg: weeklyCappy,
+      iconAlt: 'Sam celebrating your weekly check-ins',
       customContent: (
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-nn-mist">
           <div
@@ -86,34 +95,41 @@ export default function MetricsSummaryCards({
         </div>
       ),
     },
-    {
-      label: 'Trend',
-      value: trend,
-      unit: '',
-      sub: 'Compared to baseline',
-      sparkData: null,
-      sparkColor: null,
-      icon: (
-        <svg viewBox="0 0 20 20" fill="none" stroke="#4663ac" strokeWidth="1.6" className="h-5 w-5">
-          <path d="M3 14l4-5 4 3 6-8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-      badge: (
-        <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-          ● {trend}
-        </span>
-      ),
-    },
+    wellnessScore != null
+      ? {
+          label: 'Wellness Score',
+          value: `${wellnessScore}`,
+          unit: '/ 100',
+          sub: 'Estimated check-in score',
+          sparkData: null,
+          sparkColor: null,
+          iconImg: wellnessCappy,
+          iconAlt: 'Sam doing yoga for your wellness score',
+          valueColor: wellnessScore >= 75 ? 'text-emerald-600' : wellnessScore >= 50 ? 'text-amber-600' : 'text-red-500',
+        }
+      : {
+          label: 'Check-in Trend',
+          value: trend,
+          unit: '',
+          sub: 'Compared to baseline',
+          sparkData: null,
+          sparkColor: null,
+          iconImg: wellnessCappy,
+          iconAlt: 'Sam tracking your trend',
+          badge: (
+            <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              ● {trend}
+            </span>
+          ),
+        },
   ]
 
   return (
     <div className="fade-up fade-up-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {cards.map(({ label, value, unit, sub, sparkData, sparkColor, icon, customContent, badge }) => (
+      {cards.map(({ label, value, unit, sub, sparkData, sparkColor, iconImg, iconAlt, customContent, badge, valueColor }) => (
         <div key={label} className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-nn-pale-sky">
-              {icon}
-            </div>
+            <img src={iconImg} alt={iconAlt} className="h-8 w-8 rounded-xl object-cover" />
             {sparkData && sparkColor && (
               <Sparkline data={sparkData} color={sparkColor} />
             )}
@@ -124,7 +140,7 @@ export default function MetricsSummaryCards({
               badge
             ) : (
               <>
-                <span className="text-2xl font-bold text-nn-navy">{value}</span>
+                <span className={`text-2xl font-bold ${valueColor ?? 'text-nn-navy'}`}>{value}</span>
                 {unit && <span className="text-sm text-nn-navy-light">{unit}</span>}
               </>
             )}

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import hearts from '../../assets/hearts.png'
 
 interface DailyCheckupCTAProps {
   todayCheckupComplete: boolean
@@ -45,11 +46,7 @@ export default function DailyCheckupCTA({ todayCheckupComplete }: DailyCheckupCT
   return (
     <div className="fade-up fade-up-3 rounded-3xl bg-gradient-to-br from-nn-pale-sky to-nn-periwinkle p-6 border border-nn-periwinkle/50">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-nn-deep-blue shadow-sm">
-          <svg viewBox="0 0 20 20" fill="white" className="h-5 w-5">
-            <path d="M10 18S2 12.5 2 7.5A5 5 0 0 1 10 4a5 5 0 0 1 8 3.5C18 12.5 10 18 10 18Z" />
-          </svg>
-        </div>
+        <img src={hearts} alt="" aria-hidden="true" className="h-10 w-10 rounded-2xl object-cover shadow-sm" />
         <div>
           <p className="font-semibold text-nn-navy">Today's checkup is waiting</p>
           <p className="text-sm text-nn-navy-light">Takes about 60 seconds</p>

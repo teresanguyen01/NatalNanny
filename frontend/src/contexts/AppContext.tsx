@@ -1,18 +1,21 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import {
   completedDates as initialDates,
   mockStreak,
   mockVitals,
-  mockCheckupResult,
   today,
 } from '../data/mockData'
+import type { CheckupResult } from '../types/checkup'
 
 interface AppState {
   todayCheckupComplete: boolean
   streakCount: number
   completedDates: string[]
   vitals: typeof mockVitals
-  checkupResult: typeof mockCheckupResult
+  checkupResult: CheckupResult | null
+  resultsByDate: Record<string, CheckupResult>
+  setCheckupResult: (r: CheckupResult) => void
+  addResultForDate: (date: string, result: CheckupResult) => void
   markCheckupComplete: () => void
 }
 
@@ -23,7 +26,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [streakCount, setStreakCount] = useState(mockStreak.count)
   const [completedDates, setCompletedDates] = useState<string[]>(initialDates)
   const [vitals] = useState(mockVitals)
-  const [checkupResult] = useState(mockCheckupResult)
+  const [checkupResult, setCheckupResultState] = useState<CheckupResult | null>(null)
+  const [resultsByDate, setResultsByDate] = useState<Record<string, CheckupResult>>({})
+
+  function setCheckupResult(r: CheckupResult) {
+    setCheckupResultState(r)
+    // Also index by date so the calendar can look it up
+    const date = r.created_at.substring(0, 10)
+    setResultsByDate(prev => ({ ...prev, [date]: r }))
+  }
+
+  const addResultForDate = useCallback((date: string, result: CheckupResult) => {
+    setResultsByDate(prev => ({ ...prev, [date]: result }))
+  }, [])
 
   function markCheckupComplete() {
     if (todayCheckupComplete) return
@@ -42,6 +57,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         completedDates,
         vitals,
         checkupResult,
+        resultsByDate,
+        setCheckupResult,
+        addResultForDate,
         markCheckupComplete,
       }}
     >
