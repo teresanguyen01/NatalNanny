@@ -8,7 +8,7 @@ from app.models.user import UserRole
 
 
 class UserProfileRead(BaseModel):
-    id: str
+    id: UUID
     role: UserRole | None
     mascot_health: int
     created_at: datetime
@@ -23,7 +23,7 @@ class UserProfileUpdate(BaseModel):
 
 
 class HealthRecordRead(BaseModel):
-    user_id: str
+    user_id: UUID
     data: dict[str, Any]
     updated_at: datetime
 

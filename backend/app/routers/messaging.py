@@ -1,7 +1,7 @@
 """Messaging router — REST thread/message management + WebSocket real-time channel.
 
 WebSocket protocol:
-  Connect:  WS /ws/messaging/{thread_id}?token=<supabase_jwt>
+  Connect:  WS /ws/messaging/{thread_id}?token=<jwt>
   Inbound:  { "type": "message",  "content": "..." }
             { "type": "typing",   "is_typing": true/false }
             { "type": "read",     "message_id": "..." }
@@ -312,42 +312,23 @@ def send_message(
 
 
 async def _ws_authenticate(token: str | None, cfg: Settings) -> CurrentUser | None:
-    """Verify a Supabase JWT from a WebSocket query param."""
+    """Verify a JWT from a WebSocket query param."""
     if not token:
         return None
-    from jose import JWTError, jwt as jose_jwt
-    from app.dependencies import _get_jwks
+    import jwt
+    from jwt.exceptions import InvalidTokenError
 
     try:
-        # Decode without verification first to get the key ID
-        unverified_header = jose_jwt.get_unverified_header(token)
-        kid = unverified_header.get("kid")
-
-        # Fetch JWKS
-        jwks = _get_jwks(cfg.supabase_url)
-
-        # Find the matching key in JWKS
-        key = None
-        for jwk in jwks.get("keys", []):
-            if jwk.get("kid") == kid:
-                key = jose_jwt.algorithms.RSAAlgorithm.from_jwk(jwk)
-                break
-
-        if not key:
-            return None
-
-        # Verify and decode with the public key
-        payload = jose_jwt.decode(
+        payload = jwt.decode(
             token,
-            key,
-            algorithms=["RS256"],
-            audience="authenticated",
+            cfg.jwt_secret,
+            algorithms=["HS256"],
         )
         user_id = payload.get("sub")
         email = payload.get("email")
         if user_id and email:
             return CurrentUser(id=user_id, email=email)
-    except JWTError:
+    except InvalidTokenError:
         pass
     return None
 
@@ -362,7 +343,7 @@ async def websocket_messaging(
 ) -> None:
     """Real-time messaging channel for a thread.
 
-    Auth: pass the Supabase JWT as ?token=<jwt>
+    Auth: pass the JWT as ?token=<jwt>
     """
     current_user = await _ws_authenticate(token, cfg)
     if current_user is None:

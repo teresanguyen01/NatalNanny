@@ -1,15 +1,13 @@
-import { supabase } from './supabase'
-
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-async function getToken(): Promise<string | null> {
-  if (!supabase) return null
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
+export const isDemoMode = !API_BASE || API_BASE === ''
+
+function getToken(): string | null {
+  return localStorage.getItem('token')
 }
 
 async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = await getToken()
+  const token = getToken()
   const res = await fetch(`${API_BASE}/api${path}`, {
     ...options,
     headers: {
@@ -24,6 +22,35 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
   }
   if (res.status === 204) return undefined as unknown as T
   return res.json()
+}
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+
+interface AuthResult {
+  token: string
+  user: { id: string; email: string }
+}
+
+export async function authLogin(email: string, password: string): Promise<AuthResult> {
+  const res = await fetchApi<AuthResult>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  localStorage.setItem('token', res.token)
+  return res
+}
+
+export async function authSignup(email: string, password: string): Promise<AuthResult> {
+  const res = await fetchApi<AuthResult>('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  localStorage.setItem('token', res.token)
+  return res
+}
+
+export function authLogout(): void {
+  localStorage.removeItem('token')
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────

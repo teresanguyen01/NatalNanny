@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import checkup, dashboard, doctor_patients, health, me, users
+from .routers import auth, checkup, dashboard, doctor_patients, health, me, users
 from .routers.messaging import router as messaging_router
 from .routers.messaging import ws_router as messaging_ws_router
 
@@ -22,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 app.include_router(me.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")

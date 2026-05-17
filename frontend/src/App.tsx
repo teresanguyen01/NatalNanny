@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage'
 import MessagingPage from './pages/MessagingPage'
 import CheckupPage from './pages/CheckupPage'
 import CheckupResultsPage from './pages/CheckupResultsPage'
+import SignupPage from './pages/SignupPage'
 import SettingsPage from './pages/SettingsPage'
 import RoleGate from './components/auth/RoleGate'
 
@@ -21,6 +22,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/select-role" element={<RoleSelectionPage />} />
               <Route element={<RoleGate />}>
