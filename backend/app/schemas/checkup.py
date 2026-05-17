@@ -53,3 +53,4 @@ class CompleteSessionResponse(BaseModel):
     brownie_points: float
     mascot_health: int
     streak: int
+    longest_streak: int

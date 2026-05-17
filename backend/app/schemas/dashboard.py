@@ -19,9 +19,10 @@ class DashboardSummary(BaseModel):
 
     brownie_points: list[BrowniePointEntry]
     streak: int
+    longest_streak: int
     mascot_health: int
     last_checkin: LastCheckin | None
-    checkin_dates: list[date]
+    checkin_dates: list[dict]
 
 
 class BrowniePointsResponse(BaseModel):

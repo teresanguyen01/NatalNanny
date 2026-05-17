@@ -9,7 +9,7 @@ Flow:
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated
 
 import httpx
@@ -22,7 +22,7 @@ from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
 from app.models.checkin import CheckupSession, SessionStatus
 from app.models.user import UserProfile
-from app.routers.dashboard import _compute_streak, _get_profile
+from app.routers.dashboard import _apply_health_decay, _compute_streak, _get_profile
 from app.schemas.checkup import (
     CompleteSessionRequest,
     CompleteSessionResponse,
@@ -147,8 +147,9 @@ def complete_session(
 ) -> CompleteSessionResponse:
     """Finalize the session and run side-effects:
       1. Persist stats + brownie_points (stub algorithm)
-      2. Recalculate mascot_health
-      3. Return updated summary fields for optimistic dashboard refresh
+      2. Apply health decay + gain
+      3. Update streak tracking
+      4. Return updated summary fields for optimistic dashboard refresh
     """
     session = _get_session_or_404(db, session_id, user.id)
 
@@ -166,17 +167,30 @@ def complete_session(
     session.completed_at = datetime.now(timezone.utc)
     db.flush()
 
-    # Recalculate mascot_health: +5 per completed session, capped at 100
-    # TODO: replace with decay-aware calculation once cron job is in place
     profile = _get_profile(db, user.id)
-    profile.mascot_health = min(100, profile.mascot_health + 5)
-    db.commit()
+    today_date = date.today()
 
-    streak = _compute_streak(db, user.id)
+    # Apply decay before adding gain
+    decayed_health = _apply_health_decay(profile)
+
+    # Add +10 health, cap at 100
+    new_health = min(100, decayed_health + 10)
+
+    profile.mascot_health = new_health
+    profile.last_checkin_date = today_date
+    profile.last_health_update = datetime.now(timezone.utc)
+
+    # Update longest streak if current exceeds it
+    current_streak = _compute_streak(db, user.id)
+    if current_streak > profile.longest_streak:
+        profile.longest_streak = current_streak
+
+    db.commit()
 
     return CompleteSessionResponse(
         session_id=session.id,
         brownie_points=stub_points,
         mascot_health=profile.mascot_health,
-        streak=streak,
+        streak=current_streak,
+        longest_streak=profile.longest_streak,
     )

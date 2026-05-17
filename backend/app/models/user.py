@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, Integer, String, func
+from sqlalchemy import Date, DateTime, Enum, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +44,13 @@ class UserProfile(Base):
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     emergency_contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    longest_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_checkin_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_health_update: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -1,9 +1,14 @@
 interface StreakCardProps {
   streakCount: number
+  longestStreak: number
   todayComplete: boolean
 }
 
-export default function StreakCard({ streakCount, todayComplete }: StreakCardProps) {
+export default function StreakCard({
+  streakCount,
+  longestStreak,
+  todayComplete
+}: StreakCardProps) {
   const pct = Math.min((streakCount / 14) * 100, 100)
 
   return (
@@ -15,6 +20,15 @@ export default function StreakCard({ streakCount, todayComplete }: StreakCardPro
           <p className="text-sm font-medium text-white/80">
             {streakCount === 1 ? 'day' : 'days'} in a row
           </p>
+
+          {longestStreak > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/20">
+              <p className="text-xs text-white/60">Personal best</p>
+              <p className="text-lg font-bold text-white/90">
+                {longestStreak} {longestStreak === 1 ? 'day' : 'days'}
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-center gap-1">
           <svg viewBox="0 0 28 28" fill="none" className="h-10 w-10">
@@ -51,7 +65,12 @@ export default function StreakCard({ streakCount, todayComplete }: StreakCardPro
           Complete today's checkup to extend your streak
         </p>
       )}
-      {todayComplete && (
+      {todayComplete && streakCount === longestStreak && longestStreak > 3 && (
+        <p className="mt-3 text-xs text-emerald-300 font-medium">
+          🎉 New personal record!
+        </p>
+      )}
+      {todayComplete && (streakCount !== longestStreak || longestStreak <= 3) && (
         <p className="mt-3 text-xs text-white/80">
           Great work — come back tomorrow to keep going!
         </p>

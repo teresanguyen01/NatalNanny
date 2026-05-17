@@ -35,6 +35,29 @@ def _get_profile(db: Session, user_id: str) -> UserProfile:
     return profile
 
 
+def _apply_health_decay(profile: UserProfile) -> int:
+    """
+    Apply proportional health decay based on days since last check-in.
+    Decay: -15% per day missed, applied retroactively.
+    Returns: Updated mascot_health value (0-100)
+    """
+    if profile.last_checkin_date is None:
+        return profile.mascot_health
+
+    today_date = date.today()
+    days_since_last = (today_date - profile.last_checkin_date).days
+
+    if days_since_last <= 0:
+        return profile.mascot_health
+
+    # Apply 15% decay per missed day (exponential)
+    current_health = profile.mascot_health
+    for _ in range(days_since_last):
+        current_health = int(current_health * 0.85)
+
+    return max(0, current_health)  # Floor at 0
+
+
 def _compute_streak(db: Session, user_id: str) -> int:
     """Count consecutive days (ending today) with at least one completed session."""
     completed = (
@@ -99,6 +122,52 @@ def _checkin_dates(db: Session, user_id: str, month: str | None) -> list[date]:
     return sorted(set(rows))
 
 
+def _checkin_dates_with_streaks(
+    db: Session, user_id: str, month: str | None
+) -> list[dict]:
+    """
+    Fetch completed dates and calculate what the streak was on each specific day.
+    Returns: List of {date, streak} objects
+    """
+    # Get all completed dates
+    stmt = select(func.date(CheckupSession.completed_at).label("day")).where(
+        CheckupSession.user_id == user_id,
+        CheckupSession.status == SessionStatus.completed,
+        CheckupSession.completed_at.isnot(None),
+    )
+
+    if month:
+        try:
+            month_dt = datetime.strptime(month, "%Y-%m")
+            stmt = stmt.where(
+                func.date_trunc("month", CheckupSession.completed_at)
+                == month_dt.date().replace(day=1)
+            )
+        except ValueError:
+            pass
+
+    completed_dates = sorted(set(db.execute(stmt.distinct()).scalars().all()))
+
+    if not completed_dates:
+        return []
+
+    # Build set for O(1) lookup
+    completed_set = set(completed_dates)
+
+    # Compute streak for each date by counting backwards
+    result = []
+    for check_date in completed_dates:
+        streak = 0
+        cursor = check_date
+        while cursor in completed_set:
+            streak += 1
+            cursor -= timedelta(days=1)
+
+        result.append({"date": check_date.isoformat(), "streak": streak})
+
+    return result
+
+
 def _last_checkin(db: Session, user_id: str) -> LastCheckin | None:
     session = db.execute(
         select(CheckupSession)
@@ -121,12 +190,33 @@ def _last_checkin(db: Session, user_id: str) -> LastCheckin | None:
 def get_dashboard_summary(user: Auth, db: DB) -> DashboardSummary:
     """Single round-trip for the dashboard initial load."""
     profile = _get_profile(db, user.id)
+
+    # Apply lazy health decay
+    decayed_health = _apply_health_decay(profile)
+    if decayed_health != profile.mascot_health:
+        profile.mascot_health = decayed_health
+        profile.last_health_update = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(profile)
+
+    current_streak = _compute_streak(db, user.id)
+
+    # Update longest_streak if current exceeds it
+    if current_streak > profile.longest_streak:
+        profile.longest_streak = current_streak
+        db.commit()
+        db.refresh(profile)
+
+    # Get checkin dates with historical streak values
+    checkin_data = _checkin_dates_with_streaks(db, user.id, month=None)
+
     return DashboardSummary(
         brownie_points=_brownie_entries(db, user.id, days=30),
-        streak=_compute_streak(db, user.id),
+        streak=current_streak,
+        longest_streak=profile.longest_streak,
         mascot_health=profile.mascot_health,
         last_checkin=_last_checkin(db, user.id),
-        checkin_dates=_checkin_dates(db, user.id, month=None),
+        checkin_dates=checkin_data,
     )
 
 

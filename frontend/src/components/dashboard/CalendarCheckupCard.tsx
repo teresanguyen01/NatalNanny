@@ -1,10 +1,24 @@
 import { useState } from 'react'
 import type { CheckupResult } from '../../types/checkup'
 
+interface CheckinDateData {
+  date: string
+  streak: number
+}
+
 interface CalendarCheckupCardProps {
-  completedDates: string[]
+  completedDates: CheckinDateData[]
   today: string
   resultsByDate?: Record<string, CheckupResult>
+}
+
+function getStreakColor(streak: number): string {
+  if (streak === 0 || streak === 1) return 'bg-yellow-400'       // Yellow
+  if (streak === 2) return 'bg-lime-400'         // Lime
+  if (streak === 3) return 'bg-green-400'        // Light green
+  if (streak === 4) return 'bg-green-500'        // Green
+  if (streak === 5) return 'bg-emerald-500'      // Emerald
+  return 'bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 shadow-lg'  // Shiny gold for 6+
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -146,7 +160,12 @@ export default function CalendarCheckupCard({
   const year = todayDate.getFullYear()
   const month = todayDate.getMonth()
   const days = buildCalendarDays(year, month)
-  const completedSet = new Set(completedDates)
+
+  // Convert to map for O(1) lookup
+  const completedMap = new Map(
+    completedDates.map(d => [d.date, d.streak])
+  )
+  const completedSet = new Set(completedDates.map(d => d.date))
 
   function handleDayClick(date: string) {
     if (!completedSet.has(date)) return
@@ -171,15 +190,15 @@ export default function CalendarCheckupCard({
           </p>
         </div>
         {/* Legend */}
-        <div className="flex flex-col gap-1.5 text-right text-[11px] text-nn-navy-light">
-          <span className="flex items-center justify-end gap-1.5">
-            <span className="h-3 w-3 rounded-full bg-emerald-400 inline-block" /> Completed
+        <div className="flex flex-col gap-1.5 text-left text-[11px] text-nn-navy-light">
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-yellow-400 inline-block" /> Streak 1
           </span>
-          <span className="flex items-center justify-end gap-1.5">
-            <span className="h-3 w-3 rounded-full border-2 border-nn-mist inline-block" /> Not completed
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-green-400 inline-block" /> Streak 2-5
           </span>
-          <span className="flex items-center justify-end gap-1.5">
-            <span className="h-3 w-3 rounded-full border-2 border-nn-deep-blue inline-block" /> Today
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-amber-500 shadow-md inline-block" /> Streak 6+
           </span>
         </div>
       </div>
@@ -199,12 +218,13 @@ export default function CalendarCheckupCard({
           if (!day) return <div key={`empty-${idx}`} />
 
           const isToday = day.date === today
-          const isComplete = completedSet.has(day.date)
+          const streakValue = completedMap.get(day.date)
+          const isComplete = streakValue !== undefined
           const isPast = day.date < today
           const isSelected = day.date === selectedDate
           const hasResult = Boolean(resultsByDate[day.date])
 
-          // Classes: completed always green; today gets a ring; selected gets a stronger ring
+          // Classes: completed uses streak gradient; today gets a ring; selected gets a stronger ring
           const baseRing = isSelected
             ? 'ring-2 ring-nn-deep-blue ring-offset-1'
             : isToday && isComplete
@@ -212,7 +232,7 @@ export default function CalendarCheckupCard({
             : ''
 
           const bgCls = isComplete
-            ? 'bg-emerald-400 text-white shadow-sm'
+            ? `${getStreakColor(streakValue!)} text-white shadow-sm`
             : isToday
             ? 'border-2 border-nn-deep-blue font-bold text-nn-deep-blue'
             : isPast
@@ -220,7 +240,7 @@ export default function CalendarCheckupCard({
             : 'text-nn-navy-light/50'
 
           const interactiveCls = isComplete
-            ? `cursor-pointer hover:bg-emerald-500 transition-colors ${hasResult ? 'hover:scale-110' : ''}`
+            ? `cursor-pointer hover:scale-105 transition-all ${hasResult ? 'hover:scale-110' : ''}`
             : ''
 
           return (

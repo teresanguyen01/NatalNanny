@@ -7,10 +7,17 @@ import {
 } from '../data/mockData'
 import type { CheckupResult } from '../types/checkup'
 
+interface CheckinDateData {
+  date: string
+  streak: number
+}
+
 interface AppState {
   todayCheckupComplete: boolean
   streakCount: number
-  completedDates: string[]
+  longestStreak: number
+  mascotHealth: number
+  completedDates: CheckinDateData[]
   vitals: typeof mockVitals
   checkupResult: CheckupResult | null
   resultsByDate: Record<string, CheckupResult>
@@ -24,7 +31,11 @@ const AppContext = createContext<AppState | null>(null)
 export function AppProvider({ children }: { children: ReactNode }) {
   const [todayCheckupComplete, setTodayCheckupComplete] = useState(false)
   const [streakCount, setStreakCount] = useState(mockStreak.count)
-  const [completedDates, setCompletedDates] = useState<string[]>(initialDates)
+  const [longestStreak, setLongestStreak] = useState(mockStreak.count)
+  const [mascotHealth, setMascotHealth] = useState(50)
+  const [completedDates, setCompletedDates] = useState<CheckinDateData[]>(
+    initialDates.map((date, idx) => ({ date, streak: idx + 1 }))
+  )
   const [vitals] = useState(mockVitals)
   const [checkupResult, setCheckupResultState] = useState<CheckupResult | null>(null)
   const [resultsByDate, setResultsByDate] = useState<Record<string, CheckupResult>>({})
@@ -43,10 +54,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   function markCheckupComplete() {
     if (todayCheckupComplete) return
     setTodayCheckupComplete(true)
-    setStreakCount((n) => n + 1)
-    setCompletedDates((dates) =>
-      dates.includes(today) ? dates : [...dates, today]
-    )
+    setStreakCount((n) => {
+      const newStreak = n + 1
+      setLongestStreak((longest) => Math.max(longest, newStreak))
+      return newStreak
+    })
+    setCompletedDates((dates) => {
+      const dateStrings = dates.map(d => d.date)
+      if (dateStrings.includes(today)) return dates
+      const newStreak = streakCount + 1
+      return [...dates, { date: today, streak: newStreak }]
+    })
+    setMascotHealth((health) => Math.min(100, health + 10))
   }
 
   return (
@@ -54,6 +73,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         todayCheckupComplete,
         streakCount,
+        longestStreak,
+        mascotHealth,
         completedDates,
         vitals,
         checkupResult,
