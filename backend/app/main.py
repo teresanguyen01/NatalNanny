@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import checkup, dashboard, health, me, users
+from .routers import checkup, dashboard, doctor_patients, health, me, users
 from .routers.messaging import router as messaging_router
 from .routers.messaging import ws_router as messaging_ws_router
 
@@ -27,6 +27,7 @@ app.include_router(me.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(checkup.router, prefix="/api")
+app.include_router(doctor_patients.router, prefix="/api")
 # REST messaging routes under /api
 app.include_router(messaging_router, prefix="/api")
 # WebSocket endpoint at /ws/messaging/{thread_id} (no /api prefix)

@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     supabase_url: str = ""
-    supabase_jwt_secret: str = ""
     # Used for server-side DB access (not needed in scaffold)
     supabase_service_role_key: str = ""
     # OpenAI — used to issue ephemeral Realtime tokens for the check-up voice agent
@@ -44,6 +43,13 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def sqlalchemy_connect_args(self) -> dict:
+        # Required for Supabase transaction pooler (PgBouncer).
+        if "pooler.supabase.com" in self.database_url:
+            return {"prepare_threshold": None}
+        return {}
 
 
 @lru_cache

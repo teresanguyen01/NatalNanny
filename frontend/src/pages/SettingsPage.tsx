@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import { mockUser } from '../data/mockData'
 import { useAuth } from '../contexts/AuthContext'
+import { listMyPatients, addPatient, removePatient, type DoctorPatientLink } from '../lib/api'
 
 export default function SettingsPage() {
-  const { displayName, signOut } = useAuth()
+  const { displayName, signOut, role, isDemoMode } = useAuth()
 
   return (
     <div className="min-h-full p-6 lg:p-8">
@@ -23,60 +25,46 @@ export default function SettingsPage() {
               </div>
               <div>
                 <p className="text-xl font-bold text-nn-navy">{displayName}</p>
-                <p className="text-sm text-nn-navy-light">{mockUser.email}</p>
-                <span className="mt-1 inline-block rounded-full bg-nn-pale-sky px-3 py-0.5 text-xs font-medium text-nn-deep-blue">
-                  Week {mockUser.gestationalWeek} · Active patient
+                <p className="text-sm text-nn-navy-light">{isDemoMode ? mockUser.email : ''}</p>
+                <span className="mt-1 inline-block rounded-full bg-nn-pale-sky px-3 py-0.5 text-xs font-medium text-nn-deep-blue capitalize">
+                  {role ?? 'No role set'}
                 </span>
               </div>
             </div>
 
             <div className="space-y-3">
               <SettingRow label="Full Name" value={displayName} />
-              <SettingRow label="Email" value={mockUser.email} />
-              <SettingRow label="Preferred Language" value={mockUser.preferredLanguage} />
+              <SettingRow label="Role" value={role ?? 'Not set'} />
             </div>
           </div>
 
-          {/* Health context card */}
-          <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 font-semibold text-nn-navy">Health Context</h2>
-            <div className="space-y-3">
-              <SettingRow label="Gestational Week" value={`Week ${mockUser.gestationalWeek} of 40`} />
-              <SettingRow
-                label="Due Date"
-                value={new Date(mockUser.dueDate).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              />
-              <SettingRow label="Care Team" value={mockUser.careTeam} />
-              <SettingRow
-                label="Risk Factors"
-                value={mockUser.riskFactors.join(', ')}
-                valueClass="text-amber-600"
-              />
-              <SettingRow label="Emergency Contact" value={mockUser.emergencyContact} />
-            </div>
-          </div>
+          {/* Doctor: My Patients card */}
+          {role === 'doctor' && <DoctorPatientsCard />}
 
-          {/* Blood pressure card */}
-          <div className="fade-up fade-up-3 rounded-3xl bg-white p-6 shadow-sm">
-            <h2 className="mb-1 font-semibold text-nn-navy">Blood Pressure (Manual Entry)</h2>
-            <p className="mb-4 text-xs text-nn-navy-light">
-              Blood pressure requires manual cuff entry. rPPG values are estimates and cannot measure BP.
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="rounded-2xl bg-nn-pale-sky px-5 py-4">
-                <p className="text-xs text-nn-navy-light">Last recorded</p>
-                <p className="mt-0.5 text-2xl font-bold text-nn-deep-blue">{mockUser.lastManualBP}</p>
-                <p className="text-[11px] text-nn-navy-light">{mockUser.lastBPDate}</p>
+          {/* Health context card (patient only) */}
+          {role === 'patient' && (
+            <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="mb-4 font-semibold text-nn-navy">Health Context</h2>
+              <div className="space-y-3">
+                <SettingRow label="Gestational Week" value={`Week ${mockUser.gestationalWeek} of 40`} />
+                <SettingRow
+                  label="Due Date"
+                  value={new Date(mockUser.dueDate).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                />
+                <SettingRow label="Care Team" value={mockUser.careTeam} />
+                <SettingRow
+                  label="Risk Factors"
+                  value={mockUser.riskFactors.join(', ')}
+                  valueClass="text-amber-600"
+                />
+                <SettingRow label="Emergency Contact" value={mockUser.emergencyContact} />
               </div>
-              <button className="rounded-xl border border-nn-periwinkle bg-nn-pale-sky px-4 py-3 text-sm font-medium text-nn-navy hover:bg-nn-periwinkle transition-colors">
-                + Log new reading
-              </button>
             </div>
-          </div>
+          )}
 
           {/* Notification preferences */}
           <div className="fade-up fade-up-4 rounded-3xl bg-white p-6 shadow-sm">
@@ -139,6 +127,99 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function DoctorPatientsCard() {
+  const { isDemoMode } = useAuth()
+  const [patients, setPatients] = useState<DoctorPatientLink[]>([])
+  const [newPatientId, setNewPatientId] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (isDemoMode) return
+    listMyPatients()
+      .then(setPatients)
+      .catch(() => {})
+  }, [isDemoMode])
+
+  async function handleAdd() {
+    const id = newPatientId.trim()
+    if (!id) return
+    setError('')
+    setLoading(true)
+    try {
+      const link = await addPatient(id)
+      setPatients((prev) => [...prev, link])
+      setNewPatientId('')
+    } catch (e: any) {
+      setError(e.message || 'Failed to add patient')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleRemove(patientId: string) {
+    try {
+      await removePatient(patientId)
+      setPatients((prev) => prev.filter((p) => p.patient_id !== patientId))
+    } catch {
+      // Could show error
+    }
+  }
+
+  return (
+    <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
+      <h2 className="mb-4 font-semibold text-nn-navy">My Patients</h2>
+
+      {patients.length === 0 && (
+        <p className="mb-4 text-sm text-nn-navy-light">No patients added yet.</p>
+      )}
+
+      {patients.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {patients.map((p) => (
+            <div
+              key={p.patient_id}
+              className="flex items-center justify-between rounded-2xl bg-nn-pale-sky px-4 py-3"
+            >
+              <span className="text-sm font-medium text-nn-navy truncate">
+                {p.patient_id}
+              </span>
+              <button
+                onClick={() => handleRemove(p.patient_id)}
+                className="ml-3 flex h-7 w-7 items-center justify-center rounded-full text-red-500 hover:bg-red-50 transition-colors"
+                aria-label="Remove patient"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                  <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          value={newPatientId}
+          onChange={(e) => setNewPatientId(e.target.value)}
+          placeholder="Patient UUID"
+          className="flex-1 rounded-xl border border-nn-mist bg-nn-pale-sky px-4 py-2.5 text-sm text-nn-navy placeholder-nn-navy-light outline-none focus:border-nn-periwinkle focus:ring-2 focus:ring-nn-periwinkle/40"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={loading || !newPatientId.trim()}
+          className="rounded-xl bg-nn-deep-blue px-4 py-2.5 text-sm font-medium text-white disabled:opacity-40 transition-all"
+        >
+          Add Patient
+        </button>
+      </div>
+      {error && (
+        <p className="mt-2 text-xs text-red-500">{error}</p>
+      )}
     </div>
   )
 }

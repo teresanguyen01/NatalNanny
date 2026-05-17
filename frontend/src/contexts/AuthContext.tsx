@@ -7,7 +7,10 @@ import {
 } from 'react'
 import type { Session, User, AuthError } from '@supabase/supabase-js'
 import { supabase, isDemoMode } from '../lib/supabase'
+import { getProfile } from '../lib/api'
 import { mockUser } from '../data/mockData'
+
+type UserRole = 'patient' | 'doctor' | null
 
 interface AuthContextValue {
   session: Session | null
@@ -15,6 +18,9 @@ interface AuthContextValue {
   loading: boolean
   isDemoMode: boolean
   displayName: string
+  role: UserRole
+  profileLoaded: boolean
+  setRole: (role: UserRole) => void
   signInWithPassword: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
 }
@@ -41,6 +47,8 @@ const DEMO_SESSION = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(isDemoMode ? DEMO_SESSION : null)
   const [loading, setLoading] = useState(!isDemoMode)
+  const [role, setRole] = useState<UserRole>(isDemoMode ? 'patient' : null)
+  const [profileLoaded, setProfileLoaded] = useState(isDemoMode)
 
   useEffect(() => {
     if (isDemoMode || !supabase) return
@@ -57,6 +65,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Fetch profile once session is available
+  useEffect(() => {
+    if (isDemoMode || !session) return
+    getProfile()
+      .then((profile) => {
+        setRole(profile.role)
+        setProfileLoaded(true)
+      })
+      .catch(() => {
+        setProfileLoaded(true)
+      })
+  }, [session])
+
   async function signInWithPassword(email: string, password: string) {
     if (isDemoMode || !supabase) {
       setSession(DEMO_SESSION)
@@ -71,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut()
     }
     setSession(null)
+    setRole(null)
+    setProfileLoaded(false)
   }
 
   const displayName = isDemoMode
@@ -87,6 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isDemoMode,
         displayName,
+        role,
+        profileLoaded,
+        setRole,
         signInWithPassword,
         signOut,
       }}
