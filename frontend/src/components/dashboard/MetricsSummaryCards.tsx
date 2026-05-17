@@ -5,11 +5,11 @@ import weeklyCappy from '../../assets/weekly_cappy.png'
 import wellnessCappy from '../../assets/wellness_cappy.png'
 
 interface MetricsProps {
-  heartRate: number
-  signalQuality: string
-  trend: string
-  weeklyCompletion: number
-  wellnessScore?: number
+  heartRate: number | null
+  signalQuality: string | null
+  trend: string | null
+  weeklyCompletion: number | null
+  wellnessScore?: number | null
 }
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -46,54 +46,70 @@ export default function MetricsSummaryCards({
 }: MetricsProps) {
   const hrData = mockTrendData.map((d) => d.heartRate)
 
+  const signalBadge = signalQuality ? (
+    <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+      signalQuality.toLowerCase() === 'good' ? 'bg-emerald-100 text-emerald-700' :
+      signalQuality.toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' :
+      'bg-red-100 text-red-700'
+    }`}>
+      ● {signalQuality.charAt(0).toUpperCase() + signalQuality.slice(1)}
+    </span>
+  ) : (
+    <span className="mt-1 inline-flex items-center rounded-full bg-nn-mist px-2 py-0.5 text-xs font-medium text-nn-navy-light">
+      N/A
+    </span>
+  )
+
+  const trendBadge = (
+    <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+      trend ? 'bg-emerald-100 text-emerald-700' : 'bg-nn-mist text-nn-navy-light'
+    }`}>
+      {trend ? `● ${trend}` : 'N/A'}
+    </span>
+  )
+
   const cards = [
     {
       label: 'Estimated Pulse',
-      value: `${heartRate}`,
-      unit: 'bpm',
+      value: heartRate != null ? `${heartRate}` : 'N/A',
+      unit: heartRate != null ? 'bpm' : '',
       sub: 'Camera-based wellness signal',
-      sparkData: hrData,
+      sparkData: heartRate != null ? hrData : null,
       sparkColor: '#4663ac',
       iconImg: measureHeartCappy,
       iconAlt: 'Sam measuring your pulse',
+      valueColor: heartRate != null ? 'text-nn-navy' : 'text-nn-navy-light',
     },
     {
       label: 'Signal Quality',
-      value: signalQuality.charAt(0).toUpperCase() + signalQuality.slice(1),
+      value: '',
       unit: '',
       sub: 'rPPG camera signal',
       sparkData: null,
       sparkColor: null,
       iconImg: signalCappy,
       iconAlt: 'Sam checking the camera signal',
-      badge: (
-        <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-          signalQuality.toLowerCase() === 'good' ? 'bg-emerald-100 text-emerald-700' :
-          signalQuality.toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' :
-          'bg-red-100 text-red-700'
-        }`}>
-          ● {signalQuality.charAt(0).toUpperCase() + signalQuality.slice(1)}
-        </span>
-      ),
-      valueColor: qualityColor(signalQuality),
+      badge: signalBadge,
+      valueColor: signalQuality ? qualityColor(signalQuality) : undefined,
     },
     {
       label: 'Weekly Completion',
-      value: `${weeklyCompletion}`,
-      unit: '%',
+      value: weeklyCompletion != null ? `${weeklyCompletion}` : 'N/A',
+      unit: weeklyCompletion != null ? '%' : '',
       sub: 'Check-ins this week',
       sparkData: null,
       sparkColor: null,
       iconImg: weeklyCappy,
       iconAlt: 'Sam celebrating your weekly check-ins',
-      customContent: (
+      customContent: weeklyCompletion != null ? (
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-nn-mist">
           <div
             className="h-full rounded-full bg-nn-deep-blue transition-all"
             style={{ width: `${weeklyCompletion}%` }}
           />
         </div>
-      ),
+      ) : null,
+      valueColor: weeklyCompletion == null ? 'text-nn-navy-light' : undefined,
     },
     wellnessScore != null
       ? {
@@ -109,18 +125,14 @@ export default function MetricsSummaryCards({
         }
       : {
           label: 'Check-in Trend',
-          value: trend,
+          value: '',
           unit: '',
           sub: 'Compared to baseline',
           sparkData: null,
           sparkColor: null,
           iconImg: wellnessCappy,
           iconAlt: 'Sam tracking your trend',
-          badge: (
-            <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              ● {trend}
-            </span>
-          ),
+          badge: trendBadge,
         },
   ]
 

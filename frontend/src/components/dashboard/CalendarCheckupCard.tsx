@@ -237,38 +237,38 @@ function DayResultPopup({
                 <span className="ml-1 text-[8px] font-normal text-nn-navy-light">(not diagnostic)</span>
               </p>
               <div className="space-y-1">
-                {exp.respiratory_rate.value_breaths_per_min != null && (
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-nn-navy-light">Resp. rate</span>
-                    <span className="font-semibold text-nn-navy">
-                      ~{exp.respiratory_rate.value_breaths_per_min.toFixed(1)} br/min
-                    </span>
-                  </div>
-                )}
-                {exp.blood_pressure.systolic_mmHg != null && (
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-nn-navy-light">BP surrogate</span>
-                    <span className="font-semibold text-nn-navy">
-                      ~{exp.blood_pressure.systolic_mmHg}/{exp.blood_pressure.diastolic_mmHg} mmHg
-                    </span>
-                  </div>
-                )}
-                {exp.spo2.value_percent != null && (
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-nn-navy-light">SpO2 demo</span>
-                    <span className="font-semibold text-nn-navy">
-                      ~{exp.spo2.value_percent.toFixed(1)}%
-                    </span>
-                  </div>
-                )}
-                {exp.pulse_wave_velocity.value_m_per_s != null && (
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-nn-navy-light">PWV surrogate</span>
-                    <span className="font-semibold text-nn-navy">
-                      {exp.pulse_wave_velocity.value_m_per_s.toFixed(2)} m/s
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-nn-navy-light">Resp. rate</span>
+                  <span className={`font-semibold ${exp.respiratory_rate.value_breaths_per_min != null ? 'text-nn-navy' : 'text-nn-navy-light'}`}>
+                    {exp.respiratory_rate.value_breaths_per_min != null
+                      ? `~${exp.respiratory_rate.value_breaths_per_min.toFixed(1)} br/min`
+                      : 'Not available'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-nn-navy-light">Blood pressure</span>
+                  <span className={`font-semibold ${exp.blood_pressure.systolic_mmHg != null ? 'text-nn-navy' : 'text-nn-navy-light'}`}>
+                    {exp.blood_pressure.systolic_mmHg != null
+                      ? `~${exp.blood_pressure.systolic_mmHg}/${exp.blood_pressure.diastolic_mmHg} mmHg`
+                      : 'Not available'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-nn-navy-light">SpO2</span>
+                  <span className={`font-semibold ${exp.spo2.value_percent != null ? 'text-nn-navy' : 'text-nn-navy-light'}`}>
+                    {exp.spo2.value_percent != null
+                      ? `~${exp.spo2.value_percent.toFixed(1)}%`
+                      : 'Not available'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-nn-navy-light">Pulse wave velocity</span>
+                  <span className={`font-semibold ${exp.pulse_wave_velocity.value_m_per_s != null ? 'text-nn-navy' : 'text-nn-navy-light'}`}>
+                    {exp.pulse_wave_velocity.value_m_per_s != null
+                      ? `${exp.pulse_wave_velocity.value_m_per_s.toFixed(2)} m/s`
+                      : 'Not available'}
+                  </span>
+                </div>
               </div>
             </div>
           )}

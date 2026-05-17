@@ -1,10 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import {
-  completedDates as initialDates,
-  mockStreak,
-  mockVitals,
-  today,
-} from '../data/mockData'
+import { mockVitals, today } from '../data/mockData'
 import type { CheckupResult } from '../types/checkup'
 
 interface CheckinDateData {
@@ -24,6 +19,7 @@ interface AppState {
   setCheckupResult: (r: CheckupResult) => void
   addResultForDate: (date: string, result: CheckupResult) => void
   markCheckupComplete: () => void
+  setTodayCheckupComplete: (done: boolean) => void
   setStreakCount: (count: number) => void
   setLongestStreak: (count: number) => void
   setMascotHealth: (health: number) => void
@@ -34,12 +30,10 @@ const AppContext = createContext<AppState | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [todayCheckupComplete, setTodayCheckupComplete] = useState(false)
-  const [streakCount, setStreakCount] = useState(1)
-  const [longestStreak, setLongestStreak] = useState(1)
+  const [streakCount, setStreakCount] = useState(0)
+  const [longestStreak, setLongestStreak] = useState(0)
   const [mascotHealth, setMascotHealth] = useState(80)
-  const [completedDates, setCompletedDates] = useState<CheckinDateData[]>(
-    initialDates.map((date, idx) => ({ date, streak: idx + 1 }))
-  )
+  const [completedDates, setCompletedDates] = useState<CheckinDateData[]>([])
   const [vitals] = useState(mockVitals)
   const [checkupResult, setCheckupResultState] = useState<CheckupResult | null>(null)
   const [resultsByDate, setResultsByDate] = useState<Record<string, CheckupResult>>({})
@@ -91,6 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCheckupResult,
         addResultForDate,
         markCheckupComplete,
+        setTodayCheckupComplete: setTodayCheckupComplete,
         setStreakCount,
         setLongestStreak,
         setMascotHealth,

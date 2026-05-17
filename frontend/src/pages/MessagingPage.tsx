@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import logo from '../assets/logo.png'
 import {
   getContacts,
   createThread,
@@ -270,15 +271,15 @@ export default function MessagingPage() {
                 ].join(' ')}
               >
                 {/* Avatar */}
-                <div className={`relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${isAIContact ? 'bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue' : 'bg-nn-deep-blue'} shadow-sm`}>
+                <div className="relative flex-shrink-0">
                   {isAIContact ? (
-                    <svg viewBox="0 0 20 20" fill="white" className="h-5 w-5">
-                      <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
-                    </svg>
+                    <img src={logo} alt="NatalNanny AI" className="h-12 w-12 rounded-full object-cover shadow-sm" />
                   ) : (
-                    <span className="text-lg font-bold text-white">
-                      {contact.display_name.charAt(0).toUpperCase()}
-                    </span>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-nn-deep-blue shadow-sm">
+                      <span className="text-lg font-bold text-white">
+                        {contact.display_name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
                   )}
                   <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
                 </div>
