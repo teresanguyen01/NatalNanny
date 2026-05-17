@@ -5,6 +5,7 @@ All functions degrade gracefully when Supabase is not configured.
 
 import json
 import logging
+import uuid
 from pathlib import Path
 from typing import Optional
 
@@ -116,29 +117,36 @@ def save_checkup_result_supabase(
     table: str = "checkup_sessions",
     user_id: Optional[str] = None,
 ) -> None:
-    """Upsert a checkup result into the checkup_sessions JSONB backup table."""
+    """Insert a completed checkup session into the checkup_sessions table."""
     client = _get_supabase_client(supabase_url, supabase_key)
 
     cs = result.get("checkup_summary") or {}
     sq = result.get("signal_quality") or {}
     voice = result.get("voice_checkin") or {}
 
-    row = {
-        "session_id": result["session_id"],
-        "user_id": user_id,
-        "created_at": result.get("created_at"),
+    stats = {
+        "session_id": result.get("session_id"),
         "duration_seconds": result.get("duration_seconds"),
         "completed_reason": result.get("completed_reason"),
         "estimated_pulse_bpm": cs.get("estimated_pulse_bpm"),
         "pulse_category": cs.get("pulse_category"),
         "signal_quality": sq.get("overall") if isinstance(sq, dict) else None,
-        "rppg_data": json.dumps(result.get("rppg_analysis") or {}),
-        "voice_checkin": json.dumps(voice) if voice else None,
-        "session_notes_for_user": json.dumps(result.get("session_notes_for_user") or {}),
-        "user_context_used": json.dumps(result.get("user_context_used") or {}),
-        "full_result": json.dumps(result),
+        "voice_checkin": voice or None,
+        "session_notes_for_user": result.get("session_notes_for_user") or {},
+        "wellness_score": (result.get("maternal_wellness_interpretation") or {}).get("wellness_score"),
+        "wellness_message": (result.get("maternal_wellness_interpretation") or {}).get("wellness_message"),
     }
-    client.table(table).upsert(row, on_conflict="session_id").execute()
+
+    row = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "started_at": result.get("created_at"),
+        "completed_at": result.get("created_at"),
+        "status": "completed",
+        "stats": stats,
+        "rppg_raw": result.get("rppg_analysis") or {},
+    }
+    client.table(table).insert(row).execute()
 
 
 def save_rppg_result_supabase(
