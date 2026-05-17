@@ -20,7 +20,7 @@ import {
 } from '../lib/api'
 
 export default function SettingsPage() {
-  const { displayName, signOut, role, isDemoMode } = useAuth()
+  const { signOut, role, isDemoMode } = useAuth()
   const [activeTab, setActiveTab] = useState<'profile' | 'care-team' | 'health' | 'preferences'>('profile')
 
   return (

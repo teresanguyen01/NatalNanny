@@ -10,6 +10,8 @@ interface CalendarCheckupCardProps {
   completedDates: CheckinDateData[]
   today: string
   resultsByDate?: Record<string, CheckupResult>
+  isOpen: boolean
+  onClose: () => void
 }
 
 function getStreakColor(streak: number): string {
@@ -153,6 +155,8 @@ export default function CalendarCheckupCard({
   completedDates,
   today,
   resultsByDate = {},
+  isOpen,
+  onClose,
 }: CalendarCheckupCardProps) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
@@ -174,12 +178,34 @@ export default function CalendarCheckupCard({
 
   const selectedResult = selectedDate ? resultsByDate[selectedDate] : null
 
+  if (!isOpen) return null
+
   return (
-    <div className="fade-up fade-up-2 rounded-3xl bg-white p-6 shadow-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="calendar-title"
+    >
+      <div
+        className="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-nn-mist text-nn-navy-light hover:bg-nn-periwinkle hover:text-nn-navy transition-colors"
+          aria-label="Close calendar"
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+            <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
+          </svg>
+        </button>
       {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-nn-navy">
+          <h2 id="calendar-title" className="text-lg font-semibold text-nn-navy">
             {MONTHS[month]} {year}
           </h2>
           <p className="text-sm text-nn-navy-light">
@@ -286,6 +312,7 @@ export default function CalendarCheckupCard({
           <button onClick={() => setSelectedDate(null)} className="mt-2 text-nn-deep-blue hover:underline text-[11px]">Dismiss</button>
         </div>
       )}
+      </div>
     </div>
   )
 }

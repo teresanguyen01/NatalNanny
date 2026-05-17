@@ -1,15 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
 import { today } from '../data/mockData'
 import { api } from '../lib/api'
 import happyCappy from '../assets/happy_cappy.PNG'
-import StreakCard from '../components/dashboard/StreakCard'
+import HeroCheckupCard from '../components/dashboard/HeroCheckupCard'
 import CalendarCheckupCard from '../components/dashboard/CalendarCheckupCard'
-import DailyCheckupCTA from '../components/dashboard/DailyCheckupCTA'
-import MascotPanel from '../components/dashboard/MascotPanel'
-import MetricsSummaryCards from '../components/dashboard/MetricsSummaryCards'
+import CalendarSummary from '../components/dashboard/CalendarSummary'
+import ConsolidatedMetricsCard from '../components/dashboard/MetricsSummaryCards'
 import HealthProfileCard from '../components/dashboard/HealthProfileCard'
+import MessagingFAB from '../components/dashboard/MessagingFAB'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -26,6 +26,8 @@ export default function DashboardPage() {
     setCheckupResult, addResultForDate,
     setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates,
   } = useAppContext()
+
+  const [calendarOpen, setCalendarOpen] = useState(false)
 
   useEffect(() => {
     // Fetch latest for dashboard metrics display
@@ -97,45 +99,49 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Main grid ── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
 
-        {/* ── Left column (2/3 width on desktop) ── */}
-        <div className="space-y-5 lg:col-span-2">
-          {/* Streak + CTA row */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <StreakCard
-              streakCount={streakCount}
-              longestStreak={longestStreak}
-              todayComplete={todayCheckupComplete}
-            />
-            <DailyCheckupCTA todayCheckupComplete={todayCheckupComplete} />
-          </div>
+        {/* ── Hero column (60% width on desktop) ── */}
+        <HeroCheckupCard
+          todayCheckupComplete={todayCheckupComplete}
+          streakCount={streakCount}
+          longestStreak={longestStreak}
+          mascotHealth={mascotHealth}
+          displayName={displayName}
+        />
 
-          {/* Calendar */}
-          <CalendarCheckupCard
-            completedDates={completedDates}
-            today={today}
-            resultsByDate={resultsByDate}
-          />
-
-          {/* Metrics */}
-          <MetricsSummaryCards
-            heartRate={typeof liveHR === 'number' ? Math.round(liveHR) : vitals.heartRate}
-            signalQuality={liveSignalQuality}
-            trend={typeof liveTrend === 'string' ? (liveTrend.charAt(0).toUpperCase() + liveTrend.slice(1)) : vitals.trend}
-            weeklyCompletion={vitals.weeklyCompletion}
-            wellnessScore={liveWellnessScore ?? undefined}
-          />
-        </div>
-
-        {/* ── Right column (1/3 width on desktop) ── */}
-        <div className="space-y-5">
-          <div className="hidden lg:block">
-            <MascotPanel mascotHealth={mascotHealth} />
-          </div>
-          <HealthProfileCard />
-        </div>
+        {/* ── Metrics column (40% width on desktop) ── */}
+        <ConsolidatedMetricsCard
+          heartRate={typeof liveHR === 'number' ? Math.round(liveHR) : vitals.heartRate}
+          signalQuality={liveSignalQuality}
+          trend={typeof liveTrend === 'string' ? (liveTrend.charAt(0).toUpperCase() + liveTrend.slice(1)) : vitals.trend}
+          weeklyCompletion={vitals.weeklyCompletion}
+          wellnessScore={liveWellnessScore ?? undefined}
+          mascotHealth={mascotHealth}
+        />
       </div>
+
+      {/* ── Secondary row: Calendar summary + Health profile ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mt-5">
+        <CalendarSummary
+          completedCount={completedDates.length}
+          currentMonth={new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          onClick={() => setCalendarOpen(true)}
+        />
+        <HealthProfileCard />
+      </div>
+
+      {/* ── Calendar modal ── */}
+      <CalendarCheckupCard
+        completedDates={completedDates}
+        today={today}
+        resultsByDate={resultsByDate}
+        isOpen={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+      />
+
+      {/* ── Messaging FAB ── */}
+      <MessagingFAB />
 
       {/* ── Page-level safety footer ── */}
       <footer className="mt-8 text-center text-xs text-nn-navy-light/70">

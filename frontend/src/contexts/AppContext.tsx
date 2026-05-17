@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import {
   completedDates as initialDates,
-  mockStreak,
   mockVitals,
   today,
 } from '../data/mockData'

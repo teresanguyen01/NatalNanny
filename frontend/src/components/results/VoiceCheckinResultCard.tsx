@@ -18,7 +18,7 @@ export default function VoiceCheckinResultCard({ result }: { result: CheckupResu
   const [showRaw, setShowRaw] = useState(false)
   const vc = result.voice_checkin!
   const notes = result.session_notes_for_user
-  const symptoms: SymptomReport = vc.symptoms_reported || {}
+  const symptoms: SymptomReport = vc.symptoms_reported || {} as SymptomReport
   const anySymptom = Object.values(symptoms).some(Boolean)
 
   return (

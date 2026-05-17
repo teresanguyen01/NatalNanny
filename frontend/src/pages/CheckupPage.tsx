@@ -90,7 +90,7 @@ function speakWebSpeech(text: string, onEnd: () => void) {
 }
 
 function speakQuestion(text: string, onEnd: () => void) {
-  const ttsBase = (import.meta as Record<string, Record<string, string>>).env?.VITE_API_URL || ''
+  const ttsBase = (import.meta as unknown as Record<string, Record<string, string>>).env?.VITE_API_URL || ''
 
   fetch(`${ttsBase}/api/tts/speak`, {
     method: 'POST',
@@ -136,7 +136,7 @@ export default function CheckupPage() {
   const [answers, setAnswers] = useState<AnswerItem[]>([])
   const [micState, setMicState] = useState<MicState>('awaiting')
   const [liveTranscript, setLiveTranscript] = useState('')
-  const [canFinishEarly, setCanFinishEarly] = useState(false)
+  const [_canFinishEarly, setCanFinishEarly] = useState(false)
   const [finishingMsg, setFinishingMsg] = useState('')
   const [lastTranscript, setLastTranscript] = useState('')
 

@@ -10,6 +10,7 @@ interface MetricsProps {
   trend: string
   weeklyCompletion: number
   wellnessScore?: number
+  mascotHealth: number
 }
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -37,12 +38,20 @@ function qualityColor(label: string) {
   return 'text-red-500'
 }
 
-export default function MetricsSummaryCards({
+function getMascotMessage(health: number): string {
+  if (health > 75) return "Sam is so proud of you!"
+  if (health > 50) return "Sam is happy to see you!"
+  if (health > 25) return "Sam misses you"
+  return "Sam is very sad"
+}
+
+export default function ConsolidatedMetricsCard({
   heartRate,
   signalQuality,
   trend,
   weeklyCompletion,
   wellnessScore,
+  mascotHealth,
 }: MetricsProps) {
   const hrData = mockTrendData.map((d) => d.heartRate)
 
@@ -125,30 +134,57 @@ export default function MetricsSummaryCards({
   ]
 
   return (
-    <div className="fade-up fade-up-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {cards.map(({ label, value, unit, sub, sparkData, sparkColor, iconImg, iconAlt, customContent, badge, valueColor }) => (
-        <div key={label} className="rounded-2xl bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <img src={iconImg} alt={iconAlt} className="h-8 w-8 rounded-xl object-cover" />
-            {sparkData && sparkColor && (
-              <Sparkline data={sparkData} color={sparkColor} />
-            )}
-          </div>
-          <p className="text-xs font-medium uppercase tracking-wide text-nn-navy-light">{label}</p>
-          <div className="mt-1 flex items-baseline gap-1">
-            {badge ? (
-              badge
-            ) : (
-              <>
-                <span className={`text-2xl font-bold ${valueColor ?? 'text-nn-navy'}`}>{value}</span>
-                {unit && <span className="text-sm text-nn-navy-light">{unit}</span>}
-              </>
-            )}
-          </div>
-          {customContent}
-          <p className="mt-1.5 text-[10px] text-nn-navy-light">{sub}</p>
+    <div className="fade-up fade-up-2 rounded-2xl bg-white p-5 shadow-sm">
+      {/* Mascot health section at top */}
+      <div className="mb-4 pb-4 border-b border-nn-mist">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-nn-navy">Sam's Health</p>
+          <span className="text-sm font-bold text-nn-navy">{mascotHealth}%</span>
         </div>
-      ))}
+        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+            style={{ width: `${mascotHealth}%` }}
+          />
+        </div>
+        <p className="text-xs text-nn-navy-light mt-1">
+          {getMascotMessage(mascotHealth)}
+        </p>
+      </div>
+
+      {/* Metrics in 2x2 grid with dividers */}
+      <div className="grid grid-cols-2 gap-0">
+        {cards.map(({ label, value, unit, sub, sparkData, sparkColor, iconImg, iconAlt, customContent, badge, valueColor }, idx) => (
+          <div
+            key={label}
+            className={`p-3 ${
+              idx % 2 === 0 ? 'border-r border-nn-mist' : ''
+            } ${
+              idx < 2 ? 'border-b border-nn-mist' : ''
+            }`}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <img src={iconImg} alt={iconAlt} className="h-8 w-8 rounded-xl object-cover" />
+              {sparkData && sparkColor && (
+                <Sparkline data={sparkData} color={sparkColor} />
+              )}
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wide text-nn-navy-light">{label}</p>
+            <div className="mt-1 flex items-baseline gap-1">
+              {badge ? (
+                badge
+              ) : (
+                <>
+                  <span className={`text-2xl font-bold ${valueColor ?? 'text-nn-navy'}`}>{value}</span>
+                  {unit && <span className="text-sm text-nn-navy-light">{unit}</span>}
+                </>
+              )}
+            </div>
+            {customContent}
+            <p className="mt-1.5 text-[10px] text-nn-navy-light">{sub}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
