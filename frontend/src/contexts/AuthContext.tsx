@@ -30,6 +30,7 @@ interface AuthContextValue {
   isDemoMode: boolean
   displayName: string
   role: UserRole
+  isAdmin: boolean
   profileLoaded: boolean
   firstName: string | null
   lastName: string | null
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
   const [loading, setLoading] = useState(!isDemoMode)
   const [role, setRole] = useState<UserRole>(isDemoMode ? 'patient' : null)
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [profileLoaded, setProfileLoaded] = useState(isDemoMode)
   const [firstName, setFirstName] = useState<string | null>(null)
   const [lastName, setLastName] = useState<string | null>(null)
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function setProfile(profile: UserProfile) {
     setRole(profile.role)
+    setIsAdmin(profile.is_admin)
     setFirstName(profile.first_name)
     setLastName(profile.last_name)
     setPhoneNumber(profile.phone_number)
@@ -165,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authLogout()
     setSession(null)
     setRole(null)
+    setIsAdmin(false)
     setProfileLoaded(false)
     setFirstName(null)
     setLastName(null)
@@ -188,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isDemoMode,
         displayName,
         role,
+        isAdmin,
         profileLoaded,
         firstName,
         lastName,

@@ -24,15 +24,19 @@ interface AppState {
   setCheckupResult: (r: CheckupResult) => void
   addResultForDate: (date: string, result: CheckupResult) => void
   markCheckupComplete: () => void
+  setStreakCount: (count: number) => void
+  setLongestStreak: (count: number) => void
+  setMascotHealth: (health: number) => void
+  setCompletedDates: (dates: CheckinDateData[]) => void
 }
 
 const AppContext = createContext<AppState | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [todayCheckupComplete, setTodayCheckupComplete] = useState(false)
-  const [streakCount, setStreakCount] = useState(mockStreak.count)
-  const [longestStreak, setLongestStreak] = useState(mockStreak.count)
-  const [mascotHealth, setMascotHealth] = useState(50)
+  const [streakCount, setStreakCount] = useState(1)
+  const [longestStreak, setLongestStreak] = useState(1)
+  const [mascotHealth, setMascotHealth] = useState(80)
   const [completedDates, setCompletedDates] = useState<CheckinDateData[]>(
     initialDates.map((date, idx) => ({ date, streak: idx + 1 }))
   )
@@ -87,6 +91,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCheckupResult,
         addResultForDate,
         markCheckupComplete,
+        setStreakCount,
+        setLongestStreak,
+        setMascotHealth,
+        setCompletedDates,
       }}
     >
       {children}

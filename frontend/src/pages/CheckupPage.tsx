@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
 import CheckupProgressRing from '../components/checkup/CheckupProgressRing'
 import { api, getProfile } from '../lib/api'
@@ -121,7 +122,15 @@ function sessionId(): string {
 
 export default function CheckupPage() {
   const navigate = useNavigate()
+  const { role } = useAuth()
   const { markCheckupComplete, todayCheckupComplete, setCheckupResult } = useAppContext()
+
+  // Redirect doctors to dashboard
+  useEffect(() => {
+    if (role === 'doctor') {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [role, navigate])
 
   const [stage, setStage] = useState<Stage>('idle')
   const [secondsLeft, setSecondsLeft] = useState(DURATION)

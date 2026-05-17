@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import hearts from '../../assets/hearts.png'
 
 interface DailyCheckupCTAProps {
@@ -7,6 +8,12 @@ interface DailyCheckupCTAProps {
 
 export default function DailyCheckupCTA({ todayCheckupComplete }: DailyCheckupCTAProps) {
   const navigate = useNavigate()
+  const { role } = useAuth()
+
+  // Hide checkup CTA for doctors
+  if (role === 'doctor') {
+    return null
+  }
 
   if (todayCheckupComplete) {
     return (

@@ -74,7 +74,7 @@ def signup(
         first_name=body.first_name.strip(),
         last_name=body.last_name.strip(),
         phone_number=body.phone_number.strip(),
-        mascot_health=50,
+        mascot_health=80,
         role=None,  # Set later in RoleSelectionPage
     )
     db.add(profile)

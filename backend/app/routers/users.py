@@ -25,7 +25,7 @@ DB = Annotated[Session, Depends(get_db)]
 def _get_or_create_profile(db: Session, user_id: str) -> UserProfile:
     profile = db.get(UserProfile, user_id)
     if profile is None:
-        profile = UserProfile(id=uuid.UUID(user_id), mascot_health=50)
+        profile = UserProfile(id=uuid.UUID(user_id), mascot_health=80)
         db.add(profile)
         db.commit()
         db.refresh(profile)
@@ -193,6 +193,44 @@ def get_user_health_record(user_id: str, user: Auth, db: DB) -> HealthRecord:
         )
 
     return _get_or_create_health_record(db, user_id)
+
+
+@router.patch("/{user_id}/health-record", response_model=HealthRecordRead)
+def update_user_health_record(
+    user_id: str, payload: HealthRecordUpdate, user: Auth, db: DB
+) -> HealthRecord:
+    """Doctors can update health records of connected patients (partial merge)."""
+    current_profile = _get_or_create_profile(db, user.id)
+
+    if current_profile.role != UserRole.doctor:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only doctors can update patient health records.",
+        )
+
+    # Verify accepted connection exists
+    connection = (
+        db.query(DoctorPatient)
+        .filter(
+            DoctorPatient.doctor_id == uuid.UUID(user.id),
+            DoctorPatient.patient_id == uuid.UUID(user_id),
+            DoctorPatient.status == ConnectionStatus.accepted,
+        )
+        .first()
+    )
+
+    if not connection:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must have an accepted connection to update this patient's health record.",
+        )
+
+    # Apply partial merge
+    record = _get_or_create_health_record(db, user_id)
+    record.data = {**record.data, **payload.data}
+    db.commit()
+    db.refresh(record)
+    return record
 
 
 @router.get("/{user_id}/profile", response_model=UserProfileRead)

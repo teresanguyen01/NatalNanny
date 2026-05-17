@@ -23,6 +23,7 @@ class DashboardSummary(BaseModel):
     mascot_health: int
     last_checkin: LastCheckin | None
     checkin_dates: list[dict]
+    pending_notifications: list[dict] = []
 
 
 class BrowniePointsResponse(BaseModel):

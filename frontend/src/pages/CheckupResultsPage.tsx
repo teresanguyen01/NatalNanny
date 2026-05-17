@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
 import ResultsSummary from '../components/results/ResultsSummary'
 import AISummaryCard from '../components/results/AISummaryCard'
@@ -8,8 +10,16 @@ import type { SessionStorage } from '../types/checkup'
 
 export default function CheckupResultsPage() {
   const navigate = useNavigate()
+  const { role } = useAuth()
   const { todayCheckupComplete, checkupResult } = useAppContext()
   const hasVoice = !!checkupResult?.voice_checkin
+
+  // Redirect doctors to dashboard
+  useEffect(() => {
+    if (role === 'doctor') {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [role, navigate])
 
   return (
     <div className="min-h-full p-6 lg:p-8">

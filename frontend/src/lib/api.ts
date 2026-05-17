@@ -128,6 +128,7 @@ export interface MessagesPage {
 export interface UserProfile {
   id: string
   role: 'patient' | 'doctor' | null
+  is_admin: boolean
   mascot_health: number
   first_name: string | null
   last_name: string | null
@@ -155,6 +156,55 @@ export interface UserSearchResult {
   last_name: string | null
   display_name: string
   role: 'patient' | 'doctor'
+}
+
+export interface BrowniePointEntry {
+  date: string  // ISO date
+  points: number
+}
+
+export interface CheckinDateData {
+  date: string  // ISO date
+  streak: number
+}
+
+export interface LastCheckin {
+  date: string  // ISO date
+  stats: Record<string, unknown> | null
+}
+
+export interface DashboardSummary {
+  brownie_points: BrowniePointEntry[]
+  streak: number
+  longest_streak: number
+  mascot_health: number
+  last_checkin: LastCheckin | null
+  checkin_dates: CheckinDateData[]
+}
+
+export interface DoctorDashboardSummary {
+  total_patients: number
+  patients_with_recent_checkups: number
+  patients_with_missed_checkups: number
+  patients_with_urgent_symptoms: number
+}
+
+export interface CheckupSession {
+  id: string
+  user_id: string
+  status: string
+  started_at: string
+  completed_at: string | null
+  brownie_points: number
+  stats: any
+  rppg_raw: any
+}
+
+export interface HealthRecord {
+  user_id: string
+  data: Record<string, any>
+  created_at: string
+  updated_at: string
 }
 
 // ── API Functions ────────────────────────────────────────────────────────────
@@ -226,6 +276,30 @@ export function removePatient(patientId: string): Promise<void> {
 
 export function listMyDoctors(): Promise<DoctorPatientLink[]> {
   return fetchApi('/my-doctors')
+}
+
+// Doctor dashboard and patient data access
+export function getDoctorDashboardSummary(): Promise<DoctorDashboardSummary> {
+  return fetchApi('/doctor/dashboard-summary')
+}
+
+export function getUserProfile(userId: string): Promise<UserProfile> {
+  return fetchApi(`/users/${userId}/profile`)
+}
+
+export function getUserHealthRecord(userId: string): Promise<HealthRecord> {
+  return fetchApi(`/users/${userId}/health-record`)
+}
+
+export function updateUserHealthRecord(userId: string, data: Record<string, any>): Promise<HealthRecord> {
+  return fetchApi(`/users/${userId}/health-record`, {
+    method: 'PATCH',
+    body: JSON.stringify({ data }),
+  })
+}
+
+export function getPatientCheckupSessions(patientId: string): Promise<CheckupSession[]> {
+  return fetchApi(`/checkup/sessions/patient/${patientId}`)
 }
 
 export function getWebSocketUrl(threadId: string): string {
@@ -348,6 +422,11 @@ export const api = {
     voiceHistory: (limit = 30) =>
       fetchApi<CheckupResult[]>(`/checkup/voice-history?limit=${limit}`).catch(() => [] as CheckupResult[]),
   },
+
+  dashboard: {
+    summary: () =>
+      fetchApi<DashboardSummary>('/dashboard/summary'),
+  },
 }
 
 // ── Health Documents ─────────────────────────────────────────────────────────
@@ -413,6 +492,161 @@ export function ragChat(message: string): Promise<RagChatResponse> {
     method: 'POST',
     body: JSON.stringify({ message }),
   })
+}
+
+// ── Admin ────────────────────────────────────────────────────────────────────
+
+export interface AdminUserSummary {
+  id: string
+  email: string
+  role: 'patient' | 'doctor' | null
+  is_admin: boolean
+  mascot_health: number
+  current_streak: number
+  longest_streak: number
+  total_sessions: number
+  last_checkin_date: string | null
+  created_at: string
+}
+
+export interface RecentSession {
+  id: string
+  start_time: string
+  end_time: string | null
+  status: string
+  brownie_points: number
+}
+
+export interface PendingAction {
+  id: string
+  user_id: string
+  action_type: 'reminder' | 'notification' | 'mascot_adjustment' | 'streak_adjustment' | 'brownie_adjustment'
+  action_data: Record<string, unknown>
+  message: string | null
+  scheduled_for: string | null
+  status: 'pending' | 'completed' | 'cancelled'
+  created_by: string
+  created_at: string
+  completed_at: string | null
+}
+
+export interface AdminUserDetail {
+  id: string
+  email: string
+  role: 'patient' | 'doctor' | null
+  is_admin: boolean
+  first_name: string | null
+  last_name: string | null
+  phone_number: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
+  mascot_health: number
+  current_streak: number
+  longest_streak: number
+  last_checkin_date: string | null
+  created_at: string
+  updated_at: string
+  health_record: Record<string, unknown> | null
+  recent_sessions: RecentSession[]
+  pending_actions: PendingAction[]
+}
+
+export interface AdminStats {
+  total_users: number
+  total_patients: number
+  total_doctors: number
+  total_admins: number
+  active_sessions_today: number
+  total_sessions_all_time: number
+  pending_actions_count: number
+}
+
+export interface AdminAuditLog {
+  id: string
+  admin_id: string
+  action: string
+  target_user_id: string | null
+  old_values: Record<string, unknown> | null
+  new_values: Record<string, unknown> | null
+  created_at: string
+}
+
+export const admin = {
+  listUsers: (params?: {
+    q?: string
+    role?: 'patient' | 'doctor'
+    limit?: number
+    offset?: number
+  }): Promise<AdminUserSummary[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.q) searchParams.append('q', params.q)
+    if (params?.role) searchParams.append('role', params.role)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    return fetchApi(`/admin/users${searchParams.toString() ? `?${searchParams}` : ''}`)
+  },
+
+  getUserDetail: (userId: string): Promise<AdminUserDetail> => {
+    return fetchApi(`/admin/users/${userId}`)
+  },
+
+  updateUser: (userId: string, payload: { mascot_health?: number; brownie_points?: number }): Promise<{ message: string; updated_fields: string[] }> => {
+    return fetchApi(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  cancelSession: (userId: string, sessionId: string): Promise<{ message: string }> => {
+    return fetchApi(`/admin/users/${userId}/sessions/${sessionId}/cancel`, {
+      method: 'POST',
+    })
+  },
+
+  scheduleAction: (payload: {
+    user_id: string
+    action_type: 'reminder' | 'notification' | 'mascot_adjustment' | 'streak_adjustment' | 'brownie_adjustment'
+    action_data?: Record<string, unknown>
+    message?: string
+    scheduled_for?: string
+  }): Promise<PendingAction> => {
+    return fetchApi('/admin/actions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  listActions: (params?: { status?: 'pending' | 'completed' | 'cancelled'; limit?: number; offset?: number }): Promise<PendingAction[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.status) searchParams.append('status', params.status)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    return fetchApi(`/admin/actions${searchParams.toString() ? `?${searchParams}` : ''}`)
+  },
+
+  cancelAction: (actionId: string): Promise<{ message: string }> => {
+    return fetchApi(`/admin/actions/${actionId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getStats: (): Promise<AdminStats> => {
+    return fetchApi('/admin/stats')
+  },
+
+  getAuditLogs: (params?: {
+    admin_id?: string
+    target_user_id?: string
+    limit?: number
+    offset?: number
+  }): Promise<AdminAuditLog[]> => {
+    const searchParams = new URLSearchParams()
+    if (params?.admin_id) searchParams.append('admin_id', params.admin_id)
+    if (params?.target_user_id) searchParams.append('target_user_id', params.target_user_id)
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    return fetchApi(`/admin/audit-logs${searchParams.toString() ? `?${searchParams}` : ''}`)
+  },
 }
 
 export { getToken }

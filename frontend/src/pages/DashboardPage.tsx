@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAppContext } from '../contexts/AppContext'
 import { today } from '../data/mockData'
@@ -10,6 +10,7 @@ import DailyCheckupCTA from '../components/dashboard/DailyCheckupCTA'
 import MascotPanel from '../components/dashboard/MascotPanel'
 import MetricsSummaryCards from '../components/dashboard/MetricsSummaryCards'
 import HealthProfileCard from '../components/dashboard/HealthProfileCard'
+import NotificationDisplay from '../components/admin/NotificationDisplay'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -24,7 +25,9 @@ export default function DashboardPage() {
     todayCheckupComplete, streakCount, longestStreak, mascotHealth,
     completedDates, vitals, checkupResult, resultsByDate,
     setCheckupResult, addResultForDate,
+    setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates,
   } = useAppContext()
+  const [pendingNotifications, setPendingNotifications] = useState<any[]>([])
 
   useEffect(() => {
     // Fetch latest for dashboard metrics display
@@ -34,7 +37,19 @@ export default function DashboardPage() {
     api.checkup.history(60).then(history => {
       history.forEach(r => addResultForDate(r.created_at.substring(0, 10), r))
     }).catch(() => {})
-  }, [setCheckupResult, addResultForDate])
+
+    // Fetch dashboard summary (health, streak, completed dates, notifications)
+    api.dashboard.summary().then(summary => {
+      setStreakCount(summary.streak)
+      setLongestStreak(summary.longest_streak)
+      setMascotHealth(summary.mascot_health)
+      setCompletedDates(summary.checkin_dates)
+      setPendingNotifications(summary.pending_notifications || [])
+    }).catch(err => {
+      console.warn('Failed to load dashboard summary:', err)
+      // Fallback to initial values already set in AppContext
+    })
+  }, [setCheckupResult, addResultForDate, setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates])
 
 
   // Derive real values from latest checkup when available, fall back to mock vitals
@@ -83,6 +98,13 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* ── Pending Notifications ── */}
+      {pendingNotifications.length > 0 && (
+        <div className="mb-6">
+          <NotificationDisplay notifications={pendingNotifications} />
+        </div>
+      )}
 
       {/* ── Main grid ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
