@@ -31,9 +31,7 @@ export default function LandingPage() {
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <div className="max-w-2xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-nn-soft-blue px-4 py-2">
-            <svg viewBox="0 0 16 16" fill="#4663ac" className="h-3.5 w-3.5">
-              <path d="M8 1.5a.5.5 0 0 1 .447.276l1.25 2.535 2.797.407a.5.5 0 0 1 .278.852L10.75 7.54l.477 2.784a.5.5 0 0 1-.725.527L8 9.773 5.498 10.85a.5.5 0 0 1-.725-.527l.477-2.784L3.228 5.57a.5.5 0 0 1 .278-.852l2.797-.407 1.25-2.535A.5.5 0 0 1 8 1.5Z" />
-            </svg>
+            <img src={logo} alt="NatalNanny" className="h-4 w-4 rounded-md object-cover" />
             <span className="text-xs font-semibold text-nn-deep-blue">
               Voice-first · AI-assisted · rPPG powered
             </span>

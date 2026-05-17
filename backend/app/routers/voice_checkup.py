@@ -698,6 +698,360 @@ async def finish_session(payload: FinishSessionRequest, cfg: Cfg, current_user: 
     return result
 
 
+_RPPG_RESULTS_COLUMNS = (
+    "session_id,created_at,duration_seconds,completed_reason,"
+    "source_pipeline,source_mode,"
+    "estimated_pulse_bpm,pulse_category,pulse_label,confidence,"
+    "retake_recommended,retake_reasons,"
+    "pos_hr_bpm,chrom_hr_bpm,green_hr_bpm,consensus_hr_bpm,"
+    "hr_trend,mean_window_bpm,min_window_bpm,max_window_bpm,"
+    "range_window_bpm,std_window_bpm,window_values_bpm,window_size_seconds,"
+    "pos_chrom_diff_bpm,pos_green_diff_bpm,chrom_green_diff_bpm,"
+    "agreement_quality,outlier_methods,"
+    "signal_quality_overall,method_agreement_quality,hr_stability,"
+    "waveform_strength,snr_like_score,dominant_frequency_hz,"
+    "dominant_frequency_bpm,waveform_sample_count,valid_window_count,"
+    "face_detected,multiple_faces_detected,recording_duration_seconds,"
+    "estimated_fps,frame_count,resolution,"
+    "wellness_score,wellness_message,suggested_next_step,"
+    "exp_rr_status,exp_rr_value_bpm,"
+    "exp_bp_status,exp_bp_systolic,exp_bp_diastolic,"
+    "exp_spo2_status,exp_spo2_value_pct,"
+    "exp_pwv_status,exp_pwv_delay_ms"
+)
+
+
+def _rppg_row_to_checkup_result(row: dict, voice_note: Optional[dict] = None) -> dict:
+    """Convert a rppg_results Supabase row into a complete CheckupResult-compatible dict."""
+    pulse_bpm = row.get("estimated_pulse_bpm")
+    signal_q = row.get("signal_quality_overall") or "unknown"
+    wellness = row.get("wellness_score") or 0
+    trend = row.get("hr_trend") or "stable"
+    duration = row.get("recording_duration_seconds") or 0.0
+    fps = row.get("estimated_fps") or 0.0
+    frame_count = row.get("frame_count") or 0
+    snr = row.get("snr_like_score") or 0.0
+
+    result: dict = {
+        "session_id": row.get("session_id", ""),
+        "created_at": row.get("created_at", ""),
+        "duration_seconds": row.get("duration_seconds"),
+        "completed_reason": row.get("completed_reason"),
+        "source": {
+            "pipeline": row.get("source_pipeline") or "",
+            "mode": row.get("source_mode") or "",
+            "ground_truth_used": False,
+        },
+        "checkup_summary": {
+            "estimated_pulse_bpm": pulse_bpm,
+            "pulse_category": row.get("pulse_category") or "unknown",
+            "pulse_label": row.get("pulse_label") or "",
+            "confidence": row.get("confidence") or "medium",
+            "retake_recommended": bool(row.get("retake_recommended")),
+        },
+        "heart_rate_statistics": {
+            "primary_method": "",
+            "backup_method": "",
+            "baseline_method": "",
+            "consensus_method": "",
+            "heart_rate_by_method": {
+                "POS": row.get("pos_hr_bpm"),
+                "CHROM": row.get("chrom_hr_bpm"),
+                "GREEN": row.get("green_hr_bpm"),
+            },
+            "consensus_heart_rate_bpm": row.get("consensus_hr_bpm"),
+            "window_size_seconds": row.get("window_size_seconds") or 10,
+            "window_values_bpm": row.get("window_values_bpm") or [],
+            "mean_window_bpm": row.get("mean_window_bpm"),
+            "min_window_bpm": row.get("min_window_bpm"),
+            "max_window_bpm": row.get("max_window_bpm"),
+            "range_window_bpm": row.get("range_window_bpm"),
+            "std_window_bpm": row.get("std_window_bpm"),
+            "trend": trend,
+        },
+        "method_agreement": {
+            "pos_chrom_difference_bpm": row.get("pos_chrom_diff_bpm"),
+            "pos_green_difference_bpm": row.get("pos_green_diff_bpm"),
+            "chrom_green_difference_bpm": row.get("chrom_green_diff_bpm"),
+            "green_difference_from_consensus_bpm": None,
+            "outlier_methods": row.get("outlier_methods") or [],
+            "agreement_quality": row.get("agreement_quality") or "unknown",
+        },
+        "rppg_waveform_statistics": {
+            "waveform_available": snr > 0,
+            "waveform_sample_count": row.get("waveform_sample_count"),
+            "dominant_frequency_hz": row.get("dominant_frequency_hz"),
+            "dominant_frequency_bpm": row.get("dominant_frequency_bpm"),
+            "peak_power": None,
+            "average_band_power": None,
+            "snr_like_score": snr or None,
+            "valid_window_count": row.get("valid_window_count") or 0,
+        },
+        "signal_quality": {
+            "overall": signal_q,
+            "method_agreement": row.get("method_agreement_quality") or "unknown",
+            "hr_stability": row.get("hr_stability") or "unknown",
+            "waveform_strength": row.get("waveform_strength") or "unknown",
+            "face_detected": bool(row.get("face_detected", True)),
+            "multiple_faces_detected": bool(row.get("multiple_faces_detected", False)),
+            "recording_duration_seconds": duration,
+            "estimated_fps": fps,
+        },
+        "recording_quality": {
+            "face_detected": bool(row.get("face_detected", True)),
+            "multiple_faces_detected": bool(row.get("multiple_faces_detected", False)),
+            "recording_duration_seconds": duration,
+            "frame_count": frame_count,
+            "estimated_fps": fps,
+            "resolution": row.get("resolution") or "—",
+            "retake_recommended": bool(row.get("retake_recommended")),
+            "retake_reasons": row.get("retake_reasons") or [],
+        },
+        "maternal_wellness_interpretation": {
+            "wellness_score": wellness,
+            "score_label": None,
+            "message": row.get("wellness_message"),
+            "suggested_next_step": row.get("suggested_next_step"),
+            "escalation_note": None,
+        },
+        # Legacy compat fields
+        "recording": {
+            "duration_seconds": duration,
+            "frame_count": frame_count,
+            "estimated_fps": fps,
+            "video_path": "",
+        },
+        "rppg_analysis": {
+            "methods": {
+                "pos": {
+                    "hr_bpm": row.get("pos_hr_bpm"),
+                    "snr": None,
+                    "status": "ok" if row.get("pos_hr_bpm") else "unavailable",
+                },
+                "chrom": {
+                    "hr_bpm": row.get("chrom_hr_bpm"),
+                    "snr": None,
+                    "status": "ok" if row.get("chrom_hr_bpm") else "unavailable",
+                },
+                "green": {
+                    "hr_bpm": row.get("green_hr_bpm"),
+                    "snr": None,
+                    "status": "ok" if row.get("green_hr_bpm") else "unavailable",
+                },
+            },
+            "consensus": {
+                "estimated_pulse_bpm": pulse_bpm,
+                "pulse_category": row.get("pulse_category") or "unknown",
+                "pulse_label": row.get("pulse_label") or "",
+                "method_agreement": row.get("agreement_quality") or "unknown",
+                "retake_recommended": bool(row.get("retake_recommended")),
+            },
+            "signal_quality": {
+                "label": signal_q,
+                "best_snr": snr,
+                "wellness_score": wellness,
+            },
+            "check_in_trend": trend,
+        },
+        "safety": {
+            "not_diagnostic": True,
+            "disclaimer": "Wellness signal only.",
+            "urgent_notice": (
+                "Seek urgent medical care for chest pain, trouble breathing, fainting, "
+                "seizure, severe headache, vision changes, heavy bleeding, or reduced fetal movement."
+            ),
+        },
+    }
+
+    # Reconstruct experimental_vitals from stored columns
+    result["experimental_vitals"] = {
+        "respiratory_rate": {
+            "status": row.get("exp_rr_status") or "unavailable",
+            "value_breaths_per_min": row.get("exp_rr_value_bpm"),
+            "method": None,
+            "confidence": "unavailable" if row.get("exp_rr_value_bpm") is None else "medium",
+            "confidence_score": None,
+            "valid_range_breaths_per_min": None,
+            "notes": [
+                "May require a supervised multitask model such as BigSmall or additional validated signal processing."
+                if row.get("exp_rr_value_bpm") is None
+                else "Camera-derived estimate."
+            ],
+        },
+        "blood_pressure": {
+            "status": row.get("exp_bp_status") or "disabled_or_requires_calibration",
+            "systolic_mmHg": row.get("exp_bp_systolic"),
+            "diastolic_mmHg": row.get("exp_bp_diastolic"),
+            "method": None,
+            "confidence": "unavailable",
+            "notes": [
+                "Camera-only blood pressure estimation requires validated calibration/modeling or cuff integration."
+            ],
+        },
+        "spo2": {
+            "status": row.get("exp_spo2_status") or "disabled_or_requires_calibration",
+            "value_percent": row.get("exp_spo2_value_pct"),
+            "method": None,
+            "confidence": "unavailable",
+            "notes": [
+                "SpO2 requires a validated optical sensor or calibrated model. Do not present it as measured from webcam."
+            ],
+        },
+        "pulse_wave_velocity": {
+            "status": row.get("exp_pwv_status") or "not_available_single_roi",
+            "value_m_per_s": None,
+            "pulse_arrival_delay_ms": row.get("exp_pwv_delay_ms"),
+            "method": None,
+            "confidence": "unavailable",
+            "notes": [
+                "Requires timing between multiple pulse sites or additional sensors."
+            ],
+        },
+        "disclaimer": (
+            "These are experimental camera-derived wellness estimates for "
+            "proof-of-concept only and are not diagnostic."
+        ),
+    }
+
+    if voice_note:
+        result["voice_checkin"] = {
+            "questions_asked": [],
+            "raw_full_transcript": "",
+            "cleaned_note": voice_note.get("cleaned_note") or "",
+            "symptoms_reported": {
+                "shortness_of_breath": bool(voice_note.get("symptom_shortness_of_breath")),
+                "chest_pain": bool(voice_note.get("symptom_chest_pain")),
+                "dizziness": bool(voice_note.get("symptom_dizziness")),
+                "severe_headache": bool(voice_note.get("symptom_severe_headache")),
+                "vision_changes": bool(voice_note.get("symptom_vision_changes")),
+                "heavy_bleeding": bool(voice_note.get("symptom_heavy_bleeding")),
+                "reduced_fetal_movement": bool(voice_note.get("symptom_reduced_fetal_movement")),
+                "fever_or_chills": bool(voice_note.get("symptom_fever_or_chills")),
+                "mood_concern": bool(voice_note.get("symptom_mood_concern")),
+            },
+            "possible_context_for_metrics": voice_note.get("possible_context") or [],
+            "care_team_summary": voice_note.get("care_team_summary") or "",
+            "suggested_next_step": voice_note.get("suggested_next_step") or "",
+            "requires_urgent_notice": bool(voice_note.get("requires_urgent_notice")),
+            "urgent_notice_reason": voice_note.get("urgent_notice_reason"),
+        }
+
+    return result
+
+
+@router.get("/checkup/latest-db")
+async def get_latest_checkup_db(current_user: Auth, cfg: Cfg, db: DB) -> dict:
+    """
+    Return the most recent checkup result for the authenticated user.
+    Queries Supabase rppg_results by user_id first; falls back to local JSON.
+    Returns a complete CheckupResult-compatible object.
+    """
+    require_patient_role(db, current_user.id)
+
+    if cfg.supabase_url and cfg.supabase_service_role_key:
+        try:
+            client = storage._get_supabase_client(cfg.supabase_url, cfg.supabase_service_role_key)
+            resp = (
+                client.table("rppg_results")
+                .select(_RPPG_RESULTS_COLUMNS)
+                .eq("user_id", current_user.id)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if resp.data:
+                row = resp.data[0]
+                session_id = row.get("session_id", "")
+
+                # Fetch voice notes for this session if available
+                voice_note: Optional[dict] = None
+                try:
+                    vn_resp = (
+                        client.table("checkin_voice_notes")
+                        .select(
+                            "cleaned_note,care_team_summary,suggested_next_step,"
+                            "possible_context,requires_urgent_notice,urgent_notice_reason,"
+                            "symptom_chest_pain,symptom_shortness_of_breath,symptom_dizziness,"
+                            "symptom_severe_headache,symptom_vision_changes,symptom_heavy_bleeding,"
+                            "symptom_reduced_fetal_movement,symptom_fever_or_chills,symptom_mood_concern"
+                        )
+                        .eq("session_id", session_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    if vn_resp.data:
+                        voice_note = vn_resp.data[0]
+                except Exception as exc:
+                    logger.warning("Voice notes fetch failed for session %s: %s", session_id, exc)
+
+                return _rppg_row_to_checkup_result(row, voice_note)
+
+        except Exception as exc:
+            logger.warning("Supabase rppg_results query failed, falling back to local JSON: %s", exc)
+
+    # Fallback: local JSON (covers non-voice sessions and when Supabase is unavailable)
+    result = storage.get_latest_checkup_result()
+    if result is None:
+        raise HTTPException(status_code=404, detail="No checkup results found")
+    return result
+
+
+@router.get("/checkup/history-db")
+async def get_checkup_history_db(current_user: Auth, cfg: Cfg, db: DB, limit: int = 60) -> list:
+    """
+    Return checkup history for the authenticated user from Supabase.
+    Falls back to local JSON if Supabase is unavailable.
+    Returns a list of complete CheckupResult-compatible objects.
+    """
+    require_patient_role(db, current_user.id)
+
+    if cfg.supabase_url and cfg.supabase_service_role_key:
+        try:
+            client = storage._get_supabase_client(cfg.supabase_url, cfg.supabase_service_role_key)
+            resp = (
+                client.table("rppg_results")
+                .select(_RPPG_RESULTS_COLUMNS)
+                .eq("user_id", current_user.id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            if resp.data:
+                # Fetch all voice notes for these sessions in one query
+                session_ids = [r.get("session_id") for r in resp.data if r.get("session_id")]
+                voice_notes_by_session: dict[str, dict] = {}
+                if session_ids:
+                    try:
+                        vn_resp = (
+                            client.table("checkin_voice_notes")
+                            .select(
+                                "session_id,cleaned_note,care_team_summary,suggested_next_step,"
+                                "possible_context,requires_urgent_notice,urgent_notice_reason,"
+                                "symptom_chest_pain,symptom_shortness_of_breath,symptom_dizziness,"
+                                "symptom_severe_headache,symptom_vision_changes,symptom_heavy_bleeding,"
+                                "symptom_reduced_fetal_movement,symptom_fever_or_chills,symptom_mood_concern"
+                            )
+                            .in_("session_id", session_ids)
+                            .execute()
+                        )
+                        if vn_resp.data:
+                            for vn in vn_resp.data:
+                                sid = vn.get("session_id")
+                                if sid:
+                                    voice_notes_by_session[sid] = vn
+                    except Exception as exc:
+                        logger.warning("Bulk voice notes fetch failed: %s", exc)
+
+                return [
+                    _rppg_row_to_checkup_result(row, voice_notes_by_session.get(row.get("session_id", "")))
+                    for row in resp.data
+                ]
+        except Exception as exc:
+            logger.warning("Supabase history query failed, falling back to local JSON: %s", exc)
+
+    return storage.get_checkup_history(limit=limit)
+
+
 @router.get("/checkup/voice-latest")
 async def get_voice_latest(current_user: Auth, db: DB) -> dict:
     require_patient_role(db, current_user.id)

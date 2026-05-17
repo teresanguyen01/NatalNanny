@@ -167,6 +167,11 @@ def save_rppg_result_supabase(
     mwi = result.get("maternal_wellness_interpretation") or {}
     src = result.get("source") or {}
     hr_by_method = hrs.get("heart_rate_by_method") or {}
+    ev = result.get("experimental_vitals") or {}
+    ev_rr = ev.get("respiratory_rate") or {}
+    ev_bp = ev.get("blood_pressure") or {}
+    ev_spo2 = ev.get("spo2") or {}
+    ev_pwv = ev.get("pulse_wave_velocity") or {}
 
     row = {
         "session_id": result["session_id"],
@@ -231,6 +236,17 @@ def save_rppg_result_supabase(
         "wellness_score": mwi.get("wellness_score"),
         "wellness_message": mwi.get("message"),
         "suggested_next_step": mwi.get("suggested_next_step"),
+
+        # Experimental vitals
+        "exp_rr_status": ev_rr.get("status"),
+        "exp_rr_value_bpm": ev_rr.get("value_breaths_per_min"),
+        "exp_bp_status": ev_bp.get("status"),
+        "exp_bp_systolic": ev_bp.get("systolic_mmHg"),
+        "exp_bp_diastolic": ev_bp.get("diastolic_mmHg"),
+        "exp_spo2_status": ev_spo2.get("status"),
+        "exp_spo2_value_pct": ev_spo2.get("value_percent"),
+        "exp_pwv_status": ev_pwv.get("status"),
+        "exp_pwv_delay_ms": ev_pwv.get("pulse_arrival_delay_ms"),
     }
 
     client.table("rppg_results").upsert(row, on_conflict="session_id").execute()

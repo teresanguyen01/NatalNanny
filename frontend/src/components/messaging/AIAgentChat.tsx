@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { ragChat, type RagSource, type RagChatResponse } from '../../lib/api'
+import logo from '../../assets/logo.png'
 
 interface ChatMessage {
   id: string
@@ -99,11 +100,7 @@ export default function AIAgentChat() {
       {/* Header */}
       <div className="flex-shrink-0 border-b border-nn-mist bg-white px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm flex-shrink-0">
-            <svg viewBox="0 0 20 20" fill="white" className="h-5 w-5">
-              <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
-            </svg>
-          </div>
+          <img src={logo} alt="NatalNanny AI" className="h-10 w-10 rounded-full object-cover shadow-sm flex-shrink-0" />
           <div>
             <p className="text-sm font-bold text-nn-navy">NatalNanny AI</p>
             <p className="text-[11px] text-nn-navy-light">Your health records · Not a diagnosis</p>
@@ -124,11 +121,7 @@ export default function AIAgentChat() {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm">
-              <svg viewBox="0 0 20 20" fill="white" className="h-7 w-7">
-                <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
-              </svg>
-            </div>
+            <img src={logo} alt="NatalNanny AI" className="mb-4 h-14 w-14 rounded-2xl object-cover shadow-sm" />
             <p className="font-bold text-nn-navy">Ask NatalNanny AI</p>
             <p className="mt-1 text-xs text-nn-navy-light max-w-xs">
               Ask questions about your uploaded health documents, prior check-ins, or voice notes.
@@ -156,11 +149,7 @@ export default function AIAgentChat() {
             </div>
           ) : (
             <div key={msg.id} className="flex gap-2.5">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm mt-1">
-                <svg viewBox="0 0 20 20" fill="white" className="h-4 w-4">
-                  <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
-                </svg>
-              </div>
+              <img src={logo} alt="NatalNanny AI" className="h-8 w-8 flex-shrink-0 rounded-full object-cover shadow-sm mt-1" />
               <div className="max-w-[85%] space-y-2">
                 <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm border border-nn-mist">
                   <p className="text-sm text-nn-navy whitespace-pre-wrap leading-relaxed">{msg.content}</p>
@@ -214,11 +203,7 @@ export default function AIAgentChat() {
 
         {loading && (
           <div className="flex gap-2.5">
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-nn-periwinkle to-nn-deep-blue shadow-sm">
-              <svg viewBox="0 0 20 20" fill="white" className="h-4 w-4">
-                <path d="M10 2a1 1 0 0 1 .894.553l2.083 4.221 4.658.677a1 1 0 0 1 .555 1.705l-3.37 3.285.795 4.638a1 1 0 0 1-1.45 1.054L10 15.913l-4.165 2.22a1 1 0 0 1-1.45-1.054l.795-4.638L1.81 9.156a1 1 0 0 1 .555-1.705l4.658-.677L9.106 2.553A1 1 0 0 1 10 2Z" />
-              </svg>
-            </div>
+            <img src={logo} alt="NatalNanny AI" className="h-8 w-8 flex-shrink-0 rounded-full object-cover shadow-sm" />
             <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm border border-nn-mist">
               <div className="flex gap-1.5 items-center h-5">
                 <span className="h-2 w-2 rounded-full bg-nn-periwinkle animate-bounce [animation-delay:0ms]" />

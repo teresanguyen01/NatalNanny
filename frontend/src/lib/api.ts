@@ -180,6 +180,7 @@ export interface DashboardSummary {
   mascot_health: number
   last_checkin: LastCheckin | null
   checkin_dates: CheckinDateData[]
+  pending_notifications?: any[]
 }
 
 export interface DoctorDashboardSummary {
@@ -381,8 +382,13 @@ export const api = {
 
     latest: () => fetchApi<CheckupResult>('/checkup/latest'),
 
+    latestFromDb: () => fetchApi<CheckupResult>('/checkup/latest-db'),
+
     history: (limit = 30) =>
       fetchApi<CheckupResult[]>(`/checkup/history?limit=${limit}`),
+
+    historyFromDb: (limit = 60) =>
+      fetchApi<CheckupResult[]>(`/checkup/history-db?limit=${limit}`),
 
     mock: (estimatedHrBpm = 78, signalQuality = 'good') =>
       fetchApi<CheckupResult>('/checkup/mock', {

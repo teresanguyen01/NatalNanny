@@ -22,19 +22,27 @@ function getGreeting() {
 export default function DashboardPage() {
   const { displayName } = useAuth()
   const {
-    todayCheckupComplete, streakCount, longestStreak, mascotHealth,
+    streakCount, longestStreak, mascotHealth,
     completedDates, vitals, checkupResult, resultsByDate,
     setCheckupResult, addResultForDate,
+    setTodayCheckupComplete,
     setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates,
   } = useAppContext()
   const [pendingNotifications, setPendingNotifications] = useState<any[]>([])
+  const localToday = new Date().toLocaleDateString('en-CA')
 
   useEffect(() => {
-    // Fetch latest for dashboard metrics display
-    api.checkup.latest().then(setCheckupResult).catch(() => {})
 
-    // Fetch history so calendar day-clicks can show past results
-    api.checkup.history(60).then(history => {
+    // Fetch latest result for this user from Supabase — metrics stay N/A if none found
+    api.checkup.latestFromDb().then(r => {
+      setCheckupResult(r)
+      if (r.created_at.substring(0, 10) === localToday) {
+        setTodayCheckupComplete(true)
+      }
+    }).catch(() => {})
+
+    // Fetch user-specific history from Supabase so calendar day-clicks show real results
+    api.checkup.historyFromDb(60).then(history => {
       history.forEach(r => addResultForDate(r.created_at.substring(0, 10), r))
     }).catch(() => {})
 
@@ -45,25 +53,58 @@ export default function DashboardPage() {
       setMascotHealth(summary.mascot_health)
       setCompletedDates(summary.checkin_dates)
       setPendingNotifications(summary.pending_notifications || [])
+      // Also detect today complete from the checkin dates list
+      if (summary.checkin_dates.some((d: { date: string }) => d.date === localToday)) {
+        setTodayCheckupComplete(true)
+      }
     }).catch(err => {
       console.warn('Failed to load dashboard summary:', err)
-      // Fallback to initial values already set in AppContext
     })
-  }, [setCheckupResult, addResultForDate, setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates])
+  }, [setCheckupResult, addResultForDate, setTodayCheckupComplete, setStreakCount, setLongestStreak, setMascotHealth, setCompletedDates])
 
 
-  // Derive real values from latest checkup when available, fall back to mock vitals
-  const liveHR = checkupResult?.checkup_summary?.estimated_pulse_bpm
-    ?? checkupResult?.rppg_analysis?.consensus?.estimated_pulse_bpm
-    ?? vitals.heartRate
-  const liveSignalQuality = checkupResult?.signal_quality?.overall
-    ?? checkupResult?.rppg_analysis?.signal_quality?.label
-    ?? vitals.signalQuality.toLowerCase()
-  const liveTrend = checkupResult?.heart_rate_statistics?.trend
-    ?? (checkupResult?.rppg_analysis?.check_in_trend as string | undefined)
-    ?? vitals.trend
-  const liveWellnessScore = checkupResult?.maternal_wellness_interpretation?.wellness_score
-    ?? checkupResult?.rppg_analysis?.signal_quality?.wellness_score
+  // Supabase-only source of truth for whether today's checkup is done
+  const todayComplete = completedDates.some(d => d.date === localToday)
+
+  // Only show today's metrics — N/A if the latest result is from a previous day
+  const resultIsToday = checkupResult?.created_at?.substring(0, 10) === localToday
+
+  const liveHR = resultIsToday
+    ? (checkupResult?.checkup_summary?.estimated_pulse_bpm
+        ?? checkupResult?.rppg_analysis?.consensus?.estimated_pulse_bpm
+        ?? null)
+    : null
+  const liveSignalQuality = resultIsToday
+    ? (checkupResult?.signal_quality?.overall
+        ?? checkupResult?.rppg_analysis?.signal_quality?.label
+        ?? null)
+    : null
+  const liveTrend = resultIsToday
+    ? (checkupResult?.heart_rate_statistics?.trend
+        ?? (checkupResult?.rppg_analysis?.check_in_trend as string | undefined)
+        ?? null)
+    : null
+  const liveWellnessScore = resultIsToday
+    ? (checkupResult?.maternal_wellness_interpretation?.wellness_score
+        ?? checkupResult?.rppg_analysis?.signal_quality?.wellness_score
+        ?? null)
+    : null
+
+  // Compute weekly completion from real completed dates (null = no data yet)
+  const liveWeeklyCompletion = (() => {
+    if (!completedDates.length) return null
+    const now = new Date()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 7)
+    const count = completedDates.filter(d => {
+      const dt = new Date(d.date + 'T00:00:00')
+      return dt >= monday && dt < sunday
+    }).length
+    return Math.round((count / 7) * 100)
+  })()
 
   return (
     <div className="min-h-full p-6 lg:p-8">
@@ -116,9 +157,9 @@ export default function DashboardPage() {
             <StreakCard
               streakCount={streakCount}
               longestStreak={longestStreak}
-              todayComplete={todayCheckupComplete}
+              todayComplete={todayComplete}
             />
-            <DailyCheckupCTA todayCheckupComplete={todayCheckupComplete} />
+            <DailyCheckupCTA todayCheckupComplete={todayComplete} />
           </div>
 
           {/* Calendar */}
@@ -130,11 +171,11 @@ export default function DashboardPage() {
 
           {/* Metrics */}
           <MetricsSummaryCards
-            heartRate={typeof liveHR === 'number' ? Math.round(liveHR) : vitals.heartRate}
+            heartRate={typeof liveHR === 'number' ? Math.round(liveHR) : null}
             signalQuality={liveSignalQuality}
-            trend={typeof liveTrend === 'string' ? (liveTrend.charAt(0).toUpperCase() + liveTrend.slice(1)) : vitals.trend}
-            weeklyCompletion={vitals.weeklyCompletion}
-            wellnessScore={liveWellnessScore ?? undefined}
+            trend={typeof liveTrend === 'string' ? (liveTrend.charAt(0).toUpperCase() + liveTrend.slice(1)) : null}
+            weeklyCompletion={liveWeeklyCompletion}
+            wellnessScore={liveWellnessScore}
           />
         </div>
 
