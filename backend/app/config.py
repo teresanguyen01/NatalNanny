@@ -21,11 +21,10 @@ def normalize_database_url(url: str) -> str:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    supabase_url: str = ""
-    # Used for server-side DB access (not needed in scaffold)
-    supabase_service_role_key: str = ""
+    # JWT secret for signing/verifying auth tokens
+    jwt_secret: str = "dev-secret-change-me"
     # OpenAI — used to issue ephemeral Realtime tokens for the check-up voice agent
     openai_api_key: str = ""
     # SQLAlchemy / Alembic — Postgres connection URI (Supabase or local CLI)
