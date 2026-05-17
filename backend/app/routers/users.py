@@ -61,6 +61,14 @@ def update_profile(payload: UserProfileUpdate, user: Auth, db: DB) -> UserProfil
                 detail="Role has already been set and cannot be changed.",
             )
         profile.role = payload.role
+    if payload.first_name is not None:
+        profile.first_name = payload.first_name
+    if payload.last_name is not None:
+        profile.last_name = payload.last_name
+    if payload.emergency_contact_name is not None:
+        profile.emergency_contact_name = payload.emergency_contact_name
+    if payload.emergency_contact_phone is not None:
+        profile.emergency_contact_phone = payload.emergency_contact_phone
     db.commit()
     db.refresh(profile)
     return profile

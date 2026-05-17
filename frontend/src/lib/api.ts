@@ -105,6 +105,10 @@ export interface UserProfile {
   id: string
   role: 'patient' | 'doctor' | null
   mascot_health: number
+  first_name: string | null
+  last_name: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
   created_at: string
   updated_at: string
 }
@@ -121,7 +125,14 @@ export function getProfile(): Promise<UserProfile> {
   return fetchApi('/users/me/profile')
 }
 
-export function updateProfile(data: { role?: string; mascot_health?: number }): Promise<UserProfile> {
+export function updateProfile(data: {
+  role?: string
+  mascot_health?: number
+  first_name?: string
+  last_name?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+}): Promise<UserProfile> {
   return fetchApi('/users/me/profile', { method: 'PATCH', body: JSON.stringify(data) })
 }
 
