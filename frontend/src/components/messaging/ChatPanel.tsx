@@ -34,7 +34,10 @@ export default function ChatPanel({ threadId, contactName, contactAvatar, status
 
   // WebSocket callbacks
   const handleWsMessage = useCallback((msg: MessageItem) => {
-    setMessages((prev) => [...prev, msg])
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === msg.id)) return prev
+      return [...prev, msg]
+    })
   }, [])
 
   const handleTyping = useCallback((userId: string, isTyping: boolean) => {
