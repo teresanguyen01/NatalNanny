@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import auth, checkup, dashboard, doctor_patients, health, me, users
+from .routers import admin, auth, checkup, dashboard, doctor_patients, health, me, users
 from .routers.messaging import router as messaging_router
 from .routers.messaging import ws_router as messaging_ws_router
 from .routers import rppg
@@ -33,6 +33,7 @@ app.include_router(me.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(checkup.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 app.include_router(rppg.router, prefix="/api")
 app.include_router(voice_checkup.router, prefix="/api")
 app.include_router(tts.router, prefix="/api")
