@@ -24,7 +24,7 @@ from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
 from app.models.doctor_patient import ConnectionStatus, DoctorPatient
 from app.models.messaging import Message, MessageThread, SenderType, ThreadParticipant, ThreadStatus, ThreadType
-from app.models.user import UserProfile, UserRole
+from app.models.user import User, UserProfile, UserRole
 from app.schemas.messaging import (
     MessageCreate,
     MessageRead,
@@ -94,6 +94,42 @@ def _msg_to_schema(msg: Message) -> MessageRead:
 
 def _touch_thread(db: Session, thread: MessageThread) -> None:
     thread.last_message_at = datetime.now(timezone.utc)
+
+
+def _notify_recipients_by_email(
+    db: Session,
+    settings: Settings,
+    thread_id: uuid.UUID,
+    sender_id: uuid.UUID,
+    sender_profile: UserProfile,
+) -> None:
+    """Send an email notification to each thread participant who is not the sender."""
+    from app.services.email_service import EmailService
+    email_svc = EmailService(settings)
+    if not email_svc.is_configured():
+        return
+
+    sender_name = _format_contact_name(sender_profile)
+
+    participant_ids = db.execute(
+        select(ThreadParticipant.user_id).where(
+            ThreadParticipant.thread_id == thread_id,
+            ThreadParticipant.user_id != sender_id,
+        )
+    ).scalars().all()
+
+    for recipient_id in participant_ids:
+        recipient_profile = db.get(UserProfile, recipient_id)
+        if not recipient_profile or not recipient_profile.email_message_notification_enabled:
+            continue
+        recipient_user = db.get(User, recipient_id)
+        if not recipient_user:
+            continue
+        email_svc.send_message_notification(
+            to_email=recipient_user.email,
+            first_name=recipient_profile.first_name,
+            sender_name=sender_name,
+        )
 
 
 def _find_thread_between_users(db: Session, user1_id: uuid.UUID, user2_id: uuid.UUID) -> MessageThread | None:
@@ -322,7 +358,7 @@ def list_messages(
     status_code=status.HTTP_201_CREATED,
 )
 async def send_message(
-    thread_id: uuid.UUID, payload: MessageCreate, user: Auth, db: DB
+    thread_id: uuid.UUID, payload: MessageCreate, user: Auth, db: DB, cfg: Cfg
 ) -> MessageRead:
     """Send a message. For agent threads, agent replies are handled async (TODO)."""
     _assert_participant(db, thread_id, user.id)
@@ -331,9 +367,10 @@ async def send_message(
     if thread is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thread not found")
 
+    sender_id = uuid.UUID(user.id)
     msg = Message(
         thread_id=thread_id,
-        sender_id=uuid.UUID(user.id),
+        sender_id=sender_id,
         sender_type=SenderType.user,
         content=payload.content,
     )
@@ -346,6 +383,12 @@ async def send_message(
     outbound = {"type": "message", "data": _msg_to_schema(msg).model_dump(mode="json")}
     await _manager.broadcast(str(thread_id), outbound)
 
+    # Email notification to recipients
+    if thread.type == ThreadType.user:
+        sender_profile = db.get(UserProfile, sender_id)
+        if sender_profile:
+            _notify_recipients_by_email(db, cfg, thread_id, sender_id, sender_profile)
+
     # TODO: for agent threads, enqueue async agent reply via task queue
     return _msg_to_schema(msg)
 
@@ -354,7 +397,7 @@ async def send_message(
 
 
 @router.post("/messaging/requests", response_model=ThreadWithStatus, status_code=status.HTTP_201_CREATED)
-async def send_message_request(payload: MessageRequestCreate, user: Auth, db: DB) -> MessageThread:
+async def send_message_request(payload: MessageRequestCreate, user: Auth, db: DB, cfg: Cfg) -> MessageThread:
     """Send a message request to another user."""
     if payload.recipient_id == uuid.UUID(user.id):
         raise HTTPException(
@@ -433,6 +476,12 @@ async def send_message_request(payload: MessageRequestCreate, user: Auth, db: DB
     # Broadcast to WebSocket if recipient is online
     outbound = {"type": "message", "data": _msg_to_schema(msg).model_dump(mode="json")}
     await _manager.broadcast(str(thread.id), outbound)
+
+    # Email notification to recipient
+    sender_id = uuid.UUID(user.id)
+    sender_profile = db.get(UserProfile, sender_id)
+    if sender_profile:
+        _notify_recipients_by_email(db, cfg, thread.id, sender_id, sender_profile)
 
     return thread
 

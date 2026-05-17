@@ -25,41 +25,63 @@ scheduler: AsyncIOScheduler = None
 
 
 def start_reminder_scheduler():
-    """Initialize and start APScheduler for SMS reminders."""
+    """Initialize and start APScheduler for SMS and email reminders."""
     global scheduler
 
     from app.db.session import SessionLocal
     from app.services.twilio_service import TwilioService
     from app.services.reminder_service import ReminderService
+    from app.services.email_service import EmailService
+    from app.services.email_reminder_service import EmailReminderService
 
     settings = get_settings()
 
-    # Only start if Twilio configured
-    if not settings.twilio_account_sid or not settings.twilio_auth_token:
-        logger.warning("Twilio not configured - reminder scheduler disabled")
-        return
-
     scheduler = AsyncIOScheduler()
 
-    def run_reminder_check():
-        """Execute reminder check with DB session."""
+    # SMS reminders (only if Twilio configured)
+    if settings.twilio_account_sid and settings.twilio_auth_token:
+        def run_sms_reminder_check():
+            db = SessionLocal()
+            try:
+                twilio = TwilioService(settings)
+                reminder_service = ReminderService(db, settings, twilio)
+                summary = reminder_service.check_and_send_reminders()
+                logger.info(f"SMS reminder check: {summary}")
+            except Exception as e:
+                logger.error(f"SMS reminder check error: {e}", exc_info=True)
+            finally:
+                db.close()
+
+        scheduler.add_job(
+            run_sms_reminder_check,
+            trigger=IntervalTrigger(minutes=15),
+            id="check_sms_reminders",
+            name="Check and send daily check-in SMS reminders",
+            max_instances=1,
+        )
+        logger.info("SMS reminder scheduler registered")
+    else:
+        logger.warning("Twilio not configured - SMS reminders disabled")
+
+    # Email reminders (always active when SMTP is configured)
+    def run_email_reminder_check():
         db = SessionLocal()
         try:
-            twilio = TwilioService(settings)
-            reminder_service = ReminderService(db, settings, twilio)
-            summary = reminder_service.check_and_send_reminders()
-            logger.info(f"Reminder check: {summary}")
+            email_svc = EmailService(settings)
+            email_reminder = EmailReminderService(db, settings, email_svc)
+            summary = email_reminder.check_and_send()
+            logger.info(f"Email reminder check: {summary}")
         except Exception as e:
-            logger.error(f"Reminder check error: {e}", exc_info=True)
+            logger.error(f"Email reminder check error: {e}", exc_info=True)
         finally:
             db.close()
 
     scheduler.add_job(
-        run_reminder_check,
+        run_email_reminder_check,
         trigger=IntervalTrigger(minutes=15),
-        id="check_daily_reminders",
-        name="Check and send daily check-in reminders",
-        max_instances=1,  # Prevent overlapping runs
+        id="check_email_reminders",
+        name="Check and send email reminders (8 AM daily + 12 PM streak)",
+        max_instances=1,
     )
 
     scheduler.start()

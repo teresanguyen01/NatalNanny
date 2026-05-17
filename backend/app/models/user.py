@@ -62,6 +62,18 @@ class UserProfile(Base):
         Date,
         nullable=True
     )
+    # Email notification preferences (all opt-in by default)
+    email_daily_reminder_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    email_streak_alert_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    email_message_notification_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    last_email_reminder_sent_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_streak_email_sent_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     last_health_update: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

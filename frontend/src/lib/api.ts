@@ -500,6 +500,27 @@ export function ragChat(message: string): Promise<RagChatResponse> {
   })
 }
 
+// ── Notification Preferences ─────────────────────────────────────────────────
+
+export interface NotificationPreferences {
+  daily_reminder: boolean
+  streak_alerts: boolean
+  message_notifications: boolean
+}
+
+export function getNotificationPreferences(): Promise<NotificationPreferences> {
+  return fetchApi('/users/me/notification-preferences')
+}
+
+export function updateNotificationPreferences(
+  prefs: NotificationPreferences
+): Promise<NotificationPreferences> {
+  return fetchApi('/users/me/notification-preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(prefs),
+  })
+}
+
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 export interface AdminUserSummary {

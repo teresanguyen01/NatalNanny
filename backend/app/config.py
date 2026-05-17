@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_phone_number: str = ""  # E.164 format: +14155551234
+    # SMTP — email notifications (credentials loaded from .env, never hardcoded)
+    smtp_from_email: str = "natalnanny@gmail.com"
+    smtp_from_password: str = ""
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
 
     # ── Experimental vitals feature flags ─────────────────────────────────────
     # Respiratory rate estimate from BVP low-frequency modulation (on by default)
