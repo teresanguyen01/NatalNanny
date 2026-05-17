@@ -7,11 +7,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 def normalize_database_url(url: str) -> str:
     """Map Supabase-style URIs to the psycopg3 SQLAlchemy driver."""
     if url.startswith("postgres://"):
-        return "postgresql+psycopg://" + url.removeprefix("postgres://")
-    if url.startswith("postgresql://"):
-        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
-    if url.startswith("postgresql+psycopg2://"):
-        return "postgresql+psycopg://" + url.removeprefix("postgresql+psycopg2://")
+        url = "postgresql+psycopg://" + url.removeprefix("postgres://")
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    elif url.startswith("postgresql+psycopg2://"):
+        url = "postgresql+psycopg://" + url.removeprefix("postgresql+psycopg2://")
+
+    if "supabase.com" in url and "sslmode=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
+
     return url
 
 
