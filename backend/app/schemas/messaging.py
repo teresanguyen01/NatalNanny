@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.models.messaging import SenderType, ThreadType
+from app.models.messaging import SenderType, ThreadStatus, ThreadType
 
 
 class ThreadRead(BaseModel):
@@ -20,6 +20,22 @@ class ThreadCreate(BaseModel):
     """Create a user-to-user thread. Supply both participant user IDs."""
 
     participant_ids: list[UUID]
+
+
+class ThreadWithStatus(ThreadRead):
+    """Thread with status information for request management."""
+
+    status: ThreadStatus
+    initiator_id: UUID | None
+
+    model_config = {"from_attributes": True}
+
+
+class MessageRequestCreate(BaseModel):
+    """Send a message request to another user."""
+
+    recipient_id: UUID
+    initial_message: str
 
 
 class MessageRead(BaseModel):

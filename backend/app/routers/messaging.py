@@ -22,15 +22,17 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db.session import get_db
 from app.dependencies import CurrentUser, get_current_user
-from app.models.doctor_patient import DoctorPatient
-from app.models.messaging import Message, MessageThread, SenderType, ThreadParticipant, ThreadType
+from app.models.doctor_patient import ConnectionStatus, DoctorPatient
+from app.models.messaging import Message, MessageThread, SenderType, ThreadParticipant, ThreadStatus, ThreadType
 from app.models.user import UserProfile, UserRole
 from app.schemas.messaging import (
     MessageCreate,
     MessageRead,
+    MessageRequestCreate,
     MessagesPage,
     ThreadCreate,
     ThreadRead,
+    ThreadWithStatus,
 )
 from app.schemas.user import ContactRead
 
@@ -94,6 +96,32 @@ def _touch_thread(db: Session, thread: MessageThread) -> None:
     thread.last_message_at = datetime.now(timezone.utc)
 
 
+def _find_thread_between_users(db: Session, user1_id: uuid.UUID, user2_id: uuid.UUID) -> MessageThread | None:
+    """Find an existing user thread between two users."""
+    # Get all thread IDs for user1
+    user1_thread_ids = db.execute(
+        select(ThreadParticipant.thread_id).where(
+            ThreadParticipant.user_id == user1_id
+        )
+    ).scalars().all()
+
+    if not user1_thread_ids:
+        return None
+
+    # Find threads where both users are participants
+    for tid in user1_thread_ids:
+        thread_participants = db.execute(
+            select(ThreadParticipant.user_id).where(ThreadParticipant.thread_id == tid)
+        ).scalars().all()
+
+        if set(thread_participants) == {user1_id, user2_id}:
+            thread = db.get(MessageThread, tid)
+            if thread and thread.type == ThreadType.user:
+                return thread
+
+    return None
+
+
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 
@@ -121,15 +149,17 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
     """Return messaging contacts based on user role.
 
     Doctor → their patients. Patient → their doctors. Both include AI agent as synthetic contact.
+    Only returns accepted connections.
     """
     profile = db.get(UserProfile, uuid.UUID(user.id))
     contacts: list[ContactRead] = []
 
     if profile and profile.role == UserRole.doctor:
-        # Return patients
+        # Return patients with accepted connections only
         links = db.execute(
             select(DoctorPatient.patient_id).where(
-                DoctorPatient.doctor_id == uuid.UUID(user.id)
+                DoctorPatient.doctor_id == uuid.UUID(user.id),
+                DoctorPatient.status == ConnectionStatus.accepted,
             )
         ).scalars().all()
         if links:
@@ -144,10 +174,11 @@ def list_contacts(user: Auth, db: DB) -> list[ContactRead]:
                     email=None,
                 ))
     elif profile and profile.role == UserRole.patient:
-        # Return doctors
+        # Return doctors with accepted connections only
         links = db.execute(
             select(DoctorPatient.doctor_id).where(
-                DoctorPatient.patient_id == uuid.UUID(user.id)
+                DoctorPatient.patient_id == uuid.UUID(user.id),
+                DoctorPatient.status == ConnectionStatus.accepted,
             )
         ).scalars().all()
         if links:
@@ -192,51 +223,39 @@ def list_threads(user: Auth, db: DB) -> list[MessageThread]:
 
 @router.post("/messaging/threads", response_model=ThreadRead, status_code=status.HTTP_201_CREATED)
 def create_thread(payload: ThreadCreate, user: Auth, db: DB) -> MessageThread:
-    """Create a new user-to-user thread. Requires a doctor-patient relationship."""
+    """Create a new user-to-user thread. Use message request flow for new connections."""
     all_participants = list({uuid.UUID(user.id), *payload.participant_ids})
 
-    # Access control: verify doctor-patient relationship exists
-    if len(all_participants) == 2:
-        p1, p2 = all_participants
-        relationship = db.execute(
-            select(DoctorPatient).where(
-                ((DoctorPatient.doctor_id == p1) & (DoctorPatient.patient_id == p2))
-                | ((DoctorPatient.doctor_id == p2) & (DoctorPatient.patient_id == p1))
-            )
-        ).scalar_one_or_none()
-        if relationship is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No doctor-patient relationship exists between participants.",
-            )
+    if len(all_participants) != 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Exactly two participants required for a user thread.",
+        )
 
     # Deduplication: find existing thread with same participants
-    my_thread_ids = db.execute(
-        select(ThreadParticipant.thread_id).where(
-            ThreadParticipant.user_id == uuid.UUID(user.id)
-        )
-    ).scalars().all()
-    if my_thread_ids:
-        for tid in my_thread_ids:
-            thread_participants = db.execute(
-                select(ThreadParticipant.user_id).where(ThreadParticipant.thread_id == tid)
-            ).scalars().all()
-            if set(thread_participants) == set(all_participants):
-                # Check it's a user thread
-                existing_thread = db.get(MessageThread, tid)
-                if existing_thread and existing_thread.type == ThreadType.user:
-                    return existing_thread
+    other_user_id = [pid for pid in all_participants if pid != uuid.UUID(user.id)][0]
+    existing_thread = _find_thread_between_users(db, uuid.UUID(user.id), other_user_id)
 
-    thread = MessageThread(type=ThreadType.user)
-    db.add(thread)
-    db.flush()
+    if existing_thread:
+        # Only return if thread is accepted
+        if existing_thread.status == ThreadStatus.accepted:
+            return existing_thread
+        elif existing_thread.status == ThreadStatus.pending:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="A message request is pending. Please wait for the recipient to accept.",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot create thread. Use the message request flow to initiate conversations.",
+            )
 
-    for pid in all_participants:
-        db.add(ThreadParticipant(thread_id=thread.id, user_id=pid))
-
-    db.commit()
-    db.refresh(thread)
-    return thread
+    # For new threads, direct users to use message request flow
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Use the message request endpoint to initiate a new conversation.",
+    )
 
 
 @router.get("/messaging/agent/thread", response_model=ThreadRead)
@@ -329,6 +348,223 @@ async def send_message(
 
     # TODO: for agent threads, enqueue async agent reply via task queue
     return _msg_to_schema(msg)
+
+
+# ── Message Request endpoints ─────────────────────────────────────────────────
+
+
+@router.post("/messaging/requests", response_model=ThreadWithStatus, status_code=status.HTTP_201_CREATED)
+async def send_message_request(payload: MessageRequestCreate, user: Auth, db: DB) -> MessageThread:
+    """Send a message request to another user."""
+    if payload.recipient_id == uuid.UUID(user.id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot send a message request to yourself.",
+        )
+
+    # Check if recipient exists
+    recipient = db.get(UserProfile, payload.recipient_id)
+    if not recipient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recipient not found.",
+        )
+
+    # Check for existing thread
+    existing_thread = _find_thread_between_users(db, uuid.UUID(user.id), payload.recipient_id)
+
+    if existing_thread:
+        if existing_thread.status == ThreadStatus.pending:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A message request is already pending with this user.",
+            )
+        elif existing_thread.status == ThreadStatus.accepted:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A conversation already exists with this user.",
+            )
+        elif existing_thread.status == ThreadStatus.rejected:
+            # Allow re-request after 7 days
+            days_since_rejection = (datetime.now(timezone.utc) - existing_thread.created_at.replace(tzinfo=timezone.utc)).days
+            if days_since_rejection < 7:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Please wait {7 - days_since_rejection} more days before sending another request.",
+                )
+            # Update existing thread
+            existing_thread.status = ThreadStatus.pending
+            existing_thread.initiator_id = uuid.UUID(user.id)
+        elif existing_thread.status == ThreadStatus.blocked:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot send message request to this user.",
+            )
+
+    if not existing_thread:
+        # Create new thread with pending status
+        thread = MessageThread(
+            type=ThreadType.user,
+            status=ThreadStatus.pending,
+            initiator_id=uuid.UUID(user.id),
+        )
+        db.add(thread)
+        db.flush()
+
+        # Add participants
+        db.add(ThreadParticipant(thread_id=thread.id, user_id=uuid.UUID(user.id)))
+        db.add(ThreadParticipant(thread_id=thread.id, user_id=payload.recipient_id))
+    else:
+        thread = existing_thread
+
+    # Create initial message
+    msg = Message(
+        thread_id=thread.id,
+        sender_id=uuid.UUID(user.id),
+        sender_type=SenderType.user,
+        content=payload.initial_message,
+    )
+    db.add(msg)
+    _touch_thread(db, thread)
+
+    db.commit()
+    db.refresh(thread)
+
+    # Broadcast to WebSocket if recipient is online
+    outbound = {"type": "message", "data": _msg_to_schema(msg).model_dump(mode="json")}
+    await _manager.broadcast(str(thread.id), outbound)
+
+    return thread
+
+
+@router.get("/messaging/requests/received", response_model=list[ThreadWithStatus])
+def list_received_requests(user: Auth, db: DB) -> list[MessageThread]:
+    """List pending message requests where current user is the recipient."""
+    thread_ids = db.execute(
+        select(ThreadParticipant.thread_id).where(
+            ThreadParticipant.user_id == user.id
+        )
+    ).scalars().all()
+
+    if not thread_ids:
+        return []
+
+    # Get pending threads where user is NOT the initiator
+    threads = db.execute(
+        select(MessageThread)
+        .where(
+            MessageThread.id.in_(thread_ids),
+            MessageThread.type == ThreadType.user,
+            MessageThread.status == ThreadStatus.pending,
+            MessageThread.initiator_id != uuid.UUID(user.id),
+        )
+        .order_by(MessageThread.created_at.desc())
+    ).scalars().all()
+
+    return threads
+
+
+@router.get("/messaging/requests/sent", response_model=list[ThreadWithStatus])
+def list_sent_requests(user: Auth, db: DB) -> list[MessageThread]:
+    """List pending message requests sent by current user."""
+    thread_ids = db.execute(
+        select(ThreadParticipant.thread_id).where(
+            ThreadParticipant.user_id == user.id
+        )
+    ).scalars().all()
+
+    if not thread_ids:
+        return []
+
+    # Get pending threads where user IS the initiator
+    threads = db.execute(
+        select(MessageThread)
+        .where(
+            MessageThread.id.in_(thread_ids),
+            MessageThread.type == ThreadType.user,
+            MessageThread.status == ThreadStatus.pending,
+            MessageThread.initiator_id == uuid.UUID(user.id),
+        )
+        .order_by(MessageThread.created_at.desc())
+    ).scalars().all()
+
+    return threads
+
+
+@router.post("/messaging/requests/{thread_id}/accept", response_model=ThreadWithStatus)
+async def accept_message_request(thread_id: uuid.UUID, user: Auth, db: DB) -> MessageThread:
+    """Accept a pending message request."""
+    _assert_participant(db, thread_id, user.id)
+
+    thread = db.get(MessageThread, thread_id)
+    if not thread:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Thread not found.",
+        )
+
+    if thread.status != ThreadStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Thread is not in pending status.",
+        )
+
+    # Verify user is recipient (not initiator)
+    if thread.initiator_id == uuid.UUID(user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot accept your own message request.",
+        )
+
+    thread.status = ThreadStatus.accepted
+    db.commit()
+    db.refresh(thread)
+
+    # Broadcast status update to WebSocket
+    await _manager.broadcast(
+        str(thread_id),
+        {"type": "thread_status", "status": "accepted"},
+    )
+
+    return thread
+
+
+@router.post("/messaging/requests/{thread_id}/reject", response_model=ThreadWithStatus)
+async def reject_message_request(thread_id: uuid.UUID, user: Auth, db: DB) -> MessageThread:
+    """Reject a pending message request."""
+    _assert_participant(db, thread_id, user.id)
+
+    thread = db.get(MessageThread, thread_id)
+    if not thread:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Thread not found.",
+        )
+
+    if thread.status != ThreadStatus.pending:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Thread is not in pending status.",
+        )
+
+    # Verify user is recipient (not initiator)
+    if thread.initiator_id == uuid.UUID(user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot reject your own message request.",
+        )
+
+    thread.status = ThreadStatus.rejected
+    db.commit()
+    db.refresh(thread)
+
+    # Broadcast status update to WebSocket
+    await _manager.broadcast(
+        str(thread_id),
+        {"type": "thread_status", "status": "rejected"},
+    )
+
+    return thread
 
 
 # ── WebSocket endpoint ────────────────────────────────────────────────────────

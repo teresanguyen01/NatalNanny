@@ -98,6 +98,11 @@ export interface Thread {
   created_at: string
 }
 
+export interface ThreadWithStatus extends Thread {
+  status: 'pending' | 'accepted' | 'rejected' | 'blocked'
+  initiator_id: string | null
+}
+
 export interface MessageItem {
   id: string
   thread_id: string
@@ -130,6 +135,19 @@ export interface DoctorPatientLink {
   doctor_id: string
   patient_id: string
   created_at: string
+}
+
+export interface DoctorPatientLinkWithStatus extends DoctorPatientLink {
+  status: 'pending' | 'accepted' | 'rejected'
+  initiator_id: string
+}
+
+export interface UserSearchResult {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  display_name: string
+  role: 'patient' | 'doctor'
 }
 
 // ── API Functions ────────────────────────────────────────────────────────────
@@ -206,6 +224,60 @@ export function listMyDoctors(): Promise<DoctorPatientLink[]> {
 export function getWebSocketUrl(threadId: string): string {
   const wsBase = API_BASE.replace(/^http/, 'ws')
   return `${wsBase}/ws/messaging/${threadId}`
+}
+
+// User search
+export function searchUsers(query: string, limit = 20): Promise<UserSearchResult[]> {
+  const params = new URLSearchParams({ q: query, limit: limit.toString() })
+  return fetchApi(`/users/search?${params}`)
+}
+
+// Message requests
+export function sendMessageRequest(recipientId: string, initialMessage: string): Promise<ThreadWithStatus> {
+  return fetchApi('/messaging/requests', {
+    method: 'POST',
+    body: JSON.stringify({ recipient_id: recipientId, initial_message: initialMessage }),
+  })
+}
+
+export function getReceivedMessageRequests(): Promise<ThreadWithStatus[]> {
+  return fetchApi('/messaging/requests/received')
+}
+
+export function getSentMessageRequests(): Promise<ThreadWithStatus[]> {
+  return fetchApi('/messaging/requests/sent')
+}
+
+export function acceptMessageRequest(threadId: string): Promise<ThreadWithStatus> {
+  return fetchApi(`/messaging/requests/${threadId}/accept`, { method: 'POST' })
+}
+
+export function rejectMessageRequest(threadId: string): Promise<ThreadWithStatus> {
+  return fetchApi(`/messaging/requests/${threadId}/reject`, { method: 'POST' })
+}
+
+// Connection requests
+export function sendConnectionRequest(targetUserId: string): Promise<DoctorPatientLinkWithStatus> {
+  return fetchApi('/connection-requests', {
+    method: 'POST',
+    body: JSON.stringify({ target_user_id: targetUserId }),
+  })
+}
+
+export function getReceivedConnectionRequests(): Promise<DoctorPatientLinkWithStatus[]> {
+  return fetchApi('/connection-requests/received')
+}
+
+export function getSentConnectionRequests(): Promise<DoctorPatientLinkWithStatus[]> {
+  return fetchApi('/connection-requests/sent')
+}
+
+export function acceptConnectionRequest(connectionId: string): Promise<DoctorPatientLinkWithStatus> {
+  return fetchApi(`/connection-requests/${connectionId}/accept`, { method: 'POST' })
+}
+
+export function rejectConnectionRequest(connectionId: string): Promise<DoctorPatientLinkWithStatus> {
+  return fetchApi(`/connection-requests/${connectionId}/reject`, { method: 'POST' })
 }
 
 // ── Checkup / rPPG ───────────────────────────────────────────────────────────

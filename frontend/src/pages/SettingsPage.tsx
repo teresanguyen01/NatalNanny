@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react'
 import { mockUser } from '../data/mockData'
 import { useAuth } from '../contexts/AuthContext'
-import { listMyPatients, addPatient, removePatient, listMyDoctors, updateProfile, type DoctorPatientLink } from '../lib/api'
+import {
+  listMyPatients,
+  addPatient,
+  removePatient,
+  listMyDoctors,
+  updateProfile,
+  getReceivedConnectionRequests,
+  getSentConnectionRequests,
+  acceptConnectionRequest,
+  rejectConnectionRequest,
+  type DoctorPatientLink,
+  type DoctorPatientLinkWithStatus,
+} from '../lib/api'
 
 export default function SettingsPage() {
   const { displayName, signOut, role, isDemoMode } = useAuth()
@@ -48,6 +60,7 @@ export default function SettingsPage() {
             <>
               {role === 'doctor' && <DoctorPatientsCard />}
               {role === 'patient' && <PatientCareTeamCard />}
+              {!isDemoMode && <ConnectionRequestsCard />}
             </>
           )}
 
@@ -547,6 +560,157 @@ function PatientCareTeamCard() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function ConnectionRequestsCard() {
+  const { role } = useAuth()
+  const [receivedRequests, setReceivedRequests] = useState<DoctorPatientLinkWithStatus[]>([])
+  const [sentRequests, setSentRequests] = useState<DoctorPatientLinkWithStatus[]>([])
+  const [loading, setLoading] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadRequests()
+  }, [])
+
+  async function loadRequests() {
+    try {
+      const [received, sent] = await Promise.all([
+        getReceivedConnectionRequests(),
+        getSentConnectionRequests(),
+      ])
+      setReceivedRequests(received)
+      setSentRequests(sent)
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  async function handleAccept(connectionId: string) {
+    setLoading(connectionId)
+    try {
+      await acceptConnectionRequest(connectionId)
+      await loadRequests()
+      // You might want to reload the main care team list here
+      window.location.reload() // Simple approach to refresh all data
+    } catch (err) {
+      console.error('Failed to accept connection:', err)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handleReject(connectionId: string) {
+    setLoading(connectionId)
+    try {
+      await rejectConnectionRequest(connectionId)
+      await loadRequests()
+    } catch (err) {
+      console.error('Failed to reject connection:', err)
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  const hasRequests = receivedRequests.length > 0 || sentRequests.length > 0
+
+  if (!hasRequests) return null
+
+  return (
+    <div className="fade-up rounded-3xl bg-white p-6 shadow-sm">
+      <h2 className="mb-4 font-semibold text-nn-navy">Connection Requests</h2>
+
+      {/* Received Requests */}
+      {receivedRequests.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-3 text-xs font-medium text-nn-navy-light uppercase tracking-wider">
+            Received Requests
+          </p>
+          <div className="space-y-3">
+            {receivedRequests.map((req) => {
+              const otherId = role === 'doctor' ? req.patient_id : req.doctor_id
+              const connectionId = `${req.doctor_id}:${req.patient_id}`
+              const isLoading = loading === connectionId
+
+              return (
+                <div
+                  key={connectionId}
+                  className="rounded-2xl border border-nn-mist bg-nn-pale-sky p-4"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-nn-deep-blue text-white flex items-center justify-center text-sm font-semibold">
+                        {role === 'doctor' ? 'P' : 'Dr'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-nn-navy truncate">{otherId}</p>
+                        <p className="text-xs text-nn-navy-light">
+                          Wants to connect with you
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAccept(connectionId)}
+                      disabled={isLoading}
+                      className="flex-1 rounded-xl bg-nn-deep-blue px-4 py-2 text-sm font-medium text-white hover:bg-nn-deep-blue/90 disabled:opacity-50 transition-colors"
+                    >
+                      {isLoading ? 'Accepting...' : 'Accept'}
+                    </button>
+                    <button
+                      onClick={() => handleReject(connectionId)}
+                      disabled={isLoading}
+                      className="flex-1 rounded-xl border border-nn-mist px-4 py-2 text-sm font-medium text-nn-navy hover:bg-white disabled:opacity-50 transition-colors"
+                    >
+                      {isLoading ? 'Declining...' : 'Decline'}
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-xs text-nn-navy-light leading-relaxed">
+                    {role === 'doctor'
+                      ? 'Accepting this connection will grant you access to their health records and emergency contact information.'
+                      : 'Accepting this connection will grant them access to your health records and emergency contact information.'}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Sent Requests */}
+      {sentRequests.length > 0 && (
+        <div>
+          <p className="mb-3 text-xs font-medium text-nn-navy-light uppercase tracking-wider">
+            Sent Requests
+          </p>
+          <div className="space-y-2">
+            {sentRequests.map((req) => {
+              const otherId = role === 'doctor' ? req.patient_id : req.doctor_id
+
+              return (
+                <div
+                  key={`${req.doctor_id}:${req.patient_id}`}
+                  className="flex items-center gap-3 rounded-2xl bg-nn-pale-sky px-4 py-3"
+                >
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-nn-deep-blue text-white flex items-center justify-center text-xs font-semibold">
+                    {role === 'doctor' ? 'P' : 'Dr'}
+                  </div>
+                  <span className="text-sm font-medium text-nn-navy truncate flex-1">
+                    {otherId}
+                  </span>
+                  <span className="flex-shrink-0 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                    Pending
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
