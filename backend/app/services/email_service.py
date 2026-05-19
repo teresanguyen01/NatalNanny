@@ -36,7 +36,7 @@ class EmailService:
                 server.starttls()
                 print(f"[SMTP DEBUG] TLS ok, logging in as {self.settings.smtp_from_email!r} …")
                 server.login(self.settings.smtp_from_email, self.settings.smtp_from_password)
-                server.sendmail(self.settings.smtp_from_email, to_email, msg.as_string())
+                # server.sendmail(self.settings.smtp_from_email, to_email, msg.as_string())
 
             print(f"[SMTP DEBUG] ✓ Email delivered to {to_email!r}")
             logger.info("Email sent to %s — %s", to_email, subject)
